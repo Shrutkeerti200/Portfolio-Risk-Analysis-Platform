@@ -12,6 +12,7 @@ A real-time portfolio risk analytics platform built with a microservices archite
 - **Role-Based Access** — Clients see their own portfolios; Advisors manage multiple client portfolios
 - **Real-Time Dashboard** — WebSocket-powered updates with interactive charts and live metrics
 - **Threshold Alerts** — Automated notifications when risk metrics exceed user-defined limits
+- **AI-Powered Insights** — Natural language portfolio analysis using LLM integration
 
 ---
 
@@ -58,6 +59,28 @@ The platform follows an event-driven microservices architecture with three indep
 
 ---
 
+## API Endpoints
+
+### Portfolio Service (Port 8081)
+
+#### Authentication
+| Method | Endpoint             | Description              | Auth Required |
+|--------|----------------------|--------------------------|---------------|
+| POST   | `/api/auth/register` | Register new user        | No            |
+| POST   | `/api/auth/login`    | Login, returns JWT token | No            |
+| GET    | `/api/auth/me`       | Get current user profile | Yes           |
+
+#### Portfolios
+| Method | Endpoint               | Description                                    | Auth Required |
+|--------|------------------------|------------------------------------------------|---------------|
+| GET    | `/api/portfolios`      | Get all portfolios for current user            | Yes           |
+| GET    | `/api/portfolios/{id}` | Get portfolio with holdings and current values | Yes           |
+| POST   | `/api/portfolios`      | Create new portfolio                           | Yes           |
+| PUT    | `/api/portfolios/{id}` | Update portfolio name/description              | Yes           |
+| DELETE | `/api/portfolios/{id}` | Delete portfolio and all holdings              | Yes           |
+
+---
+
 ## Project Status
 
 🚧 **Under Active Development**
@@ -77,20 +100,25 @@ The platform follows an event-driven microservices architecture with three indep
 ## Project Structure
 
 ```
-portfolio-risk-platform/
+Portfolio-Risk-Analysis-Platform/
 ├── docker-compose.yml
 ├── README.md
 ├── .gitignore
-├── docs/
-│   └── architecture-diagram.png
-├── portfolio-service/          # Microservice 1 (Java/Spring Boot)
-├── risk-engine-service/        # Microservice 2 (Java/Spring Boot)
-├── notification-service/       # Microservice 3 (Java/Spring Boot)
-├── frontend/                   # React Application
-└── .github/
-    └── workflows/
-        └── ci.yml
-```
+├── portfolio-service/                 # Microservice 1 (Java/Spring Boot)
+│   ├── src/main/java/com/portfolio/service/
+│   │   ├── config/                    # Security configuration
+│   │   ├── controller/                # REST API controllers
+│   │   ├── dto/                       # Request/Response objects
+│   │   ├── model/                     # JPA entities
+│   │   ├── repository/                # Data access layer
+│   │   ├── security/                  # JWT token & auth filter
+│   │   └── service/                   # Business logic
+│   └── src/main/resources/
+│       └── application.yml            # App configuration
+├── risk-engine-service/               # Microservice 2 (Coming Soon)
+├── notification-service/              # Microservice 3 (Coming Soon)
+└── frontend/  
+```                        
 
 ---
 
@@ -104,6 +132,29 @@ portfolio-risk-platform/
 - Node.js 18+ and npm
 - Docker Desktop (6GB+ RAM allocated)
 - Finnhub API key (free at [finnhub.io](https://finnhub.io))
+
+### Running Locally
+
+# 1. Clone the repository
+git clone https://github.com/Shrutkeerti200/Portfolio-Risk-Analysis-Platform.git
+cd Portfolio-Risk-Analysis-Platform
+
+# 2. Start infrastructure (PostgreSQL & Redis)
+docker compose up -d
+
+# 3. Run Portfolio Service
+cd portfolio-service
+./mvnw clean spring-boot:run
+
+# 4. Test the API
+# Register: POST http://localhost:8081/api/auth/register
+# Login:    POST http://localhost:8081/api/auth/login
+# Profile:  GET  http://localhost:8081/api/auth/me (requires Bearer token)
+
+### Stopping the Application
+
+docker compose down          # Stop all containers
+docker compose down -v       # Stop and remove all data volumes
 
 ---
 
