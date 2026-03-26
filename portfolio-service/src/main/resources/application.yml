@@ -1,0 +1,41 @@
+server:
+    port: 8081
+
+spring:
+    application:
+        name: portfolio-service
+
+    # PostgreSQL Configuration
+    datasource:
+        url: jdbc:postgresql://localhost:5433/portfolio_db
+        username: portfolio_user
+        password: portfolio_pass
+        driver-class-name: org.postgresql.Driver
+
+    # JPA / Hibernate Configuration
+    jpa:
+        hibernate:
+            ddl-auto: update
+        show-sql: true
+        open-in-view: false
+        properties:
+            hibernate:
+                "[format_sql]": true
+
+    # Redis Configuration
+    data:
+        redis:
+            host: localhost
+            port: 6379
+            
+# JWT Configuration
+jwt:
+    secret: DiohmIyPQjPvxVpllqFN+aeMtijkvGlViV7nv9D068FpWl9rClU1ePYWBe6rUg9Z4bcvgM7x0OPa3QExWJI+cw 
+    expiration: 86400000 # 1 day in milliseconds
+
+#actuator - Health endpoints
+management:
+    endpoints:
+        web:
+            exposure:
+                include: health,info 
