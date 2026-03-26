@@ -139,17 +139,17 @@ Portfolio-Risk-Analysis-Platform/
 git clone https://github.com/Shrutkeerti200/Portfolio-Risk-Analysis-Platform.git
 cd Portfolio-Risk-Analysis-Platform
 
-# 2. Start infrastructure (PostgreSQL & Redis)
+### 2. Start infrastructure (PostgreSQL & Redis)
 docker compose up -d
 
-# 3. Run Portfolio Service
+### 3. Run Portfolio Service
 cd portfolio-service
 ./mvnw clean spring-boot:run
 
-# 4. Test the API
-# Register: POST http://localhost:8081/api/auth/register
-# Login:    POST http://localhost:8081/api/auth/login
-# Profile:  GET  http://localhost:8081/api/auth/me (requires Bearer token)
+### 4. Test the API
+Register: POST http://localhost:8081/api/auth/register
+Login:    POST http://localhost:8081/api/auth/login
+Profile:  GET  http://localhost:8081/api/auth/me (requires Bearer token)
 
 ### Stopping the Application
 
