@@ -135,7 +135,7 @@ Portfolio-Risk-Analysis-Platform/
 
 ### Running Locally
 
-# 1. Clone the repository
+### 1. Clone the repository
 git clone https://github.com/Shrutkeerti200/Portfolio-Risk-Analysis-Platform.git
 cd Portfolio-Risk-Analysis-Platform
 
