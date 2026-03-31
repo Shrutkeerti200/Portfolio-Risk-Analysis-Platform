@@ -29,30 +29,27 @@ services:
             timeout: 5s
             retries: 5
 
-    # ==================== MESSAGE SYSTEMS ====================
-  # Uncomment these when you reach the Kafka/RabbitMQ phase (Day 8+)
+    zookeeper:
+        image: confluentinc/cp-zookeeper:7.5.0
+        container_name: portfolio-zookeeper
+        environment:
+            ZOOKEEPER_CLIENT_PORT: 2181
+            ZOOKEEPER_TICK_TIME: 2000
+        ports:
+            - "2181:2181"
 
-  # zookeeper:
-  #   image: confluentinc/cp-zookeeper:7.5.0
-  #   container_name: portfolio-zookeeper
-  #   environment:
-  #     ZOOKEEPER_CLIENT_PORT: 2181
-  #     ZOOKEEPER_TICK_TIME: 2000
-  #   ports:
-  #     - "2181:2181"
-
-  # kafka:
-  #   image: confluentinc/cp-kafka:7.5.0
-  #   container_name: portfolio-kafka
-  #   depends_on:
-  #     - zookeeper
-  #   environment:
-  #     KAFKA_BROKER_ID: 1
-  #     KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-  #     KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
-  #     KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-  #   ports:
-  #     - "9092:9092"
+    kafka:
+        image: confluentinc/cp-kafka:7.5.0
+        container_name: portfolio-kafka
+        depends_on:
+            - zookeeper
+        environment:
+            KAFKA_BROKER_ID: 1
+            KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+            KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+            KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+        ports:
+            - "9092:9092"
 
   # rabbitmq:
   #   image: rabbitmq:3.12-management-alpine

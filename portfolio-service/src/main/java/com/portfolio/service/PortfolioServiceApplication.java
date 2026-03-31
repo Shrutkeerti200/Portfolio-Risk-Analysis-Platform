@@ -9,7 +9,7 @@ public class PortfolioServiceApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(PortfolioServiceApplication.class, args);
-		System.out.println("Portfolio Service is running...");
+		System.out.println("Portfolio Service is running on port 8081...");
 	}
 
 }
