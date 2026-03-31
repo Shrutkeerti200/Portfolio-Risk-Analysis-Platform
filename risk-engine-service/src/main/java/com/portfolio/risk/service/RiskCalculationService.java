@@ -108,10 +108,12 @@ public class RiskCalculationService {
 
         // Calculate daily returns for each stock
         Map<String, List<BigDecimal>> stockReturns = new HashMap<>();
+        boolean hasEnoughtData = false;
         for (String symbol : holdingValues.keySet()) {
             List<BigDecimal> returns = calculateDailyReturns(symbol);
             if (!returns.isEmpty()) {
                 stockReturns.put(symbol, returns);
+                hasEnoughtData = true;
             }
         }
 
@@ -121,6 +123,16 @@ public class RiskCalculationService {
         BigDecimal sharpeRatio = calculateSharpeRatio(dailyReturn, volatility);
         BigDecimal valueAtRisk = calculateValueAtRisk(totalValue, dailyReturn, volatility);
         BigDecimal beta = calculateBeta(weights, stockReturns);
+
+        if (!hasEnoughtData) {
+            volatility = calculatePortfolioVolatility(weights, stockReturns);
+            dailyReturn = calculatePortfolioDailyReturn(weights, stockReturns);
+            sharpeRatio = calculateSharpeRatio(dailyReturn, volatility);
+            valueAtRisk = calculateValueAtRisk(totalValue, dailyReturn, volatility);
+            beta = calculateBeta(weights, stockReturns);
+        } else {
+            log.info("Not enough historical data yet for full risk calculation. Saving basic snapshot");
+        }
 
         // Save risk snapshot
         RiskSnapshot snapshot = RiskSnapshot.builder()

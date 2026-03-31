@@ -79,21 +79,70 @@ The platform follows an event-driven microservices architecture with three indep
 | PUT    | `/api/portfolios/{id}` | Update portfolio name/description              | Yes           |
 | DELETE | `/api/portfolios/{id}` | Delete portfolio and all holdings              | Yes           |
 
+#### Holdings
+| Method | Endpoint                               | Description           | Auth Required |
+|--------|----------------------------------------|-----------------------|---------------|
+| GET    | `/api/portfolios/{id}/holdings`        | Get all holdings      | Yes           |          
+| POST   | `/api/portfolios/{id}/holdings`        | Add a stock holding   | Yes           |
+| PUT    | `/api/portfolios/holdings/{holdingId}` | Update holding        | Yes           |
+| DELETE | `/api/portfolios/holdings/{holdingId}` | Delete holding        | Yes           |
+
+#### Transactions
+| Method | Endpoint                            | Description              | Auth Required |
+|--------|-------------------------------------|--------------------------|---------------|
+| GET    | `/api/portfolios/{id}/transactions` | Get transaction history  | Yes           |
+
+#### Risk Engine Service (Port 8082)
+| Method | Endpoint                                    | Description                       |
+|--------|---------------------------------------------|-----------------------------------|
+| GET    | `/api/risk/calculate/{portfolioId}`         | Manually trigger risk calculation |          
+| GET    | `/api/risk/portfolio/{portfolioId}`         | Get latest risk metrics           | 
+| GET    | `/api/risk/portfolio/{portfolioId}/history` | Get historical risk snapshots     | 
+| GET    | `/api/risk/health`                          | Service health check              | 
+
+---
+
+## Risk Metrics
+The Risk Engine calculates these financial metrics in real-time:
+
+ | Metric              | Description                                   | Formula                                              |
+ |---------------------|-----------------------------------------------|------------------------------------------------------| 
+ | Volatility          | How much portfolio returns fluctuate          | Std Dev of daily returns × √252                      | 
+ | Sharpe Ratio        | Risk-adjusted return measure                  | (Return - Risk-Free Rate) / Volatility               | 
+ | Value at Risk (VaR) | Maximum expected daily loss at 95% confidence | Portfolio Value × (Mean Return - 1.645 × Volatility) | 
+ | Portfolio Beta      | Sensitivity to market movements               |  Weighted average of stock volatilities              |
+
+---
+
+## Data Flow
+
+1. Scheduled Price Fetcher calls Finnhub API every 30 seconds
+2. Real stock prices (AAPL, GOOGL, etc.) are received
+3. Prices are saved to PostgreSQL and cached in Redis
+4. Price updates are published to Kafka topic: stock-price-updates
+5. Kafka Consumer receives price updates
+6. Risk Calculator recalculates metrics for affected portfolios
+7. Risk snapshots are saved to PostgreSQL and cached in Redis
+8. Frontend receives updates via WebSocket 
+
 ---
 
 ## Project Status
 
 🚧 **Under Active Development**
 
-- [ ] Project setup & Docker Compose configuration
-- [ ] Portfolio Service — Auth, Portfolio & Holdings APIs
-- [ ] Risk Engine — Kafka integration & Finnhub price fetcher
-- [ ] Risk Engine — Risk calculation engine (Volatility, Sharpe, VaR, Beta)
-- [ ] RabbitMQ — Alert notifications pipeline
-- [ ] Notification Service — Alert processing & REST API
-- [ ] React Frontend — Dashboard, charts, real-time updates
-- [ ] Integration testing & end-to-end flow
-- [ ] Documentation, demo video & CI/CD pipeline
+ - Project setup & Docker Compose (PostgreSQL, Redis, Kafka, Zookeeper)
+- Portfolio Service — JWT Authentication (Register, Login, Me)
+ - Portfolio Service — Portfolio, Holdings & Transaction CRUD APIs
+ - Risk Engine — Finnhub API integration (real-time stock prices)
+ - Risk Engine — Apache Kafka producer/consumer (price streaming)
+ - Risk Engine — Risk calculation engine (Volatility, Sharpe, VaR, Beta)
+ - Risk Engine — Redis caching & PostgreSQL storage
+ - Notification Service — RabbitMQ alert pipeline
+ - React Frontend — Dashboard, charts, real-time updates
+ - AI-Powered Portfolio Insight Assistant
+ - Integration testing & end-to-end flow
+ - Documentation, & CI/CD pipeline
 
 ---
 
@@ -101,22 +150,32 @@ The platform follows an event-driven microservices architecture with three indep
 
 ```
 Portfolio-Risk-Analysis-Platform/
-├── docker-compose.yml
+├── docker-compose.yml                     # PostgreSQL, Redis, Kafka, Zookeeper
 ├── README.md
-├── .gitignore
-├── portfolio-service/                 # Microservice 1 (Java/Spring Boot)
+├── portfolio-service/                     # Microservice 1 (Port 8081)
 │   ├── src/main/java/com/portfolio/service/
-│   │   ├── config/                    # Security configuration
-│   │   ├── controller/                # REST API controllers
-│   │   ├── dto/                       # Request/Response objects
-│   │   ├── model/                     # JPA entities
-│   │   ├── repository/                # Data access layer
-│   │   ├── security/                  # JWT token & auth filter
-│   │   └── service/                   # Business logic
+│   │   ├── config/                        # Security configuration
+│   │   ├── controller/                    # Auth, Portfolio, Holdings controllers
+│   │   ├── dto/                           # Request/Response objects
+│   │   ├── model/                         # User, Portfolio, Holding, Transaction
+│   │   ├── repository/                    # Data access layer
+│   │   ├── security/                      # JWT token & auth filter
+│   │   └── service/                       # Business logic
 │   └── src/main/resources/
-│       └── application.yml            # App configuration
-├── risk-engine-service/               # Microservice 2 (Coming Soon)
-├── notification-service/              # Microservice 3 (Coming Soon)
+│       └── application.yml
+├── risk-engine-service/                   # Microservice 2 (Port 8082)
+│   ├── src/main/java/com/portfolio/risk/
+│   │   ├── client/                        # Finnhub API client
+│   │   ├── controller/                    # Risk data endpoints
+│   │   ├── dto/                           # Kafka message objects
+│   │   ├── kafka/                         # Producer & Consumer
+│   │   ├── model/                         # StockPrice, RiskSnapshot
+│   │   ├── repository/                    # Data access layer
+│   │   └── service/                       # Price fetcher & Risk calculator
+│   └── src/main/resources/
+│       └── application.yml
+├── notification-service/                  # Microservice 3
+└── frontend/                              # React Application
 └── frontend/  
 ```                        
 
