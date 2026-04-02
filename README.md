@@ -231,8 +231,8 @@ cd Portfolio-Risk-Analysis-Platform
 docker compose up -d
 
 ### 3. Run Portfolio Service
-cd portfolio-service
-./mvnw clean spring-boot:run
+- cd portfolio-service
+- ./mvnw clean spring-boot:run
 
 ### 4. Test the API
 Register: POST http://localhost:8081/api/auth/register
@@ -241,8 +241,8 @@ Profile:  GET  http://localhost:8081/api/auth/me (requires Bearer token)
 
 ### Stopping the Application
 
-docker compose down          # Stop all containers
-docker compose down -v       # Stop and remove all data volumes
+- docker compose down          # Stop all containers
+- docker compose down -v       # Stop and remove all data volumes
 
 ---
 
