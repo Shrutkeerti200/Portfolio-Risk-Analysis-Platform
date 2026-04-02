@@ -1,0 +1,46 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: notification-service
+
+  # PostgreSQL Configuration
+  datasource:
+    url: jdbc:postgresql://localhost:5433/portfolio_db
+    username: portfolio_user
+    password: portfolio_pass
+    driver-class-name: org.postgresql.Driver
+
+  # JPA /Hibernate Configuration
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    open-in-view: false
+    properties:
+      hibernate:
+        "[format_sql]": true
+
+  # RabbitMQ Configuration
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
+  # Kafka Configuration (for listening to risk updates)
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: notification-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+  # Actuator Configuration
+  management:
+    endpoints:
+      web:
+        exposure:
+          include: health,info
