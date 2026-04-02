@@ -92,13 +92,32 @@ The platform follows an event-driven microservices architecture with three indep
 |--------|-------------------------------------|--------------------------|---------------|
 | GET    | `/api/portfolios/{id}/transactions` | Get transaction history  | Yes           |
 
-#### Risk Engine Service (Port 8082)
+### Risk Engine Service (Port 8082)
 | Method | Endpoint                                    | Description                       |
 |--------|---------------------------------------------|-----------------------------------|
 | GET    | `/api/risk/calculate/{portfolioId}`         | Manually trigger risk calculation |          
 | GET    | `/api/risk/portfolio/{portfolioId}`         | Get latest risk metrics           | 
 | GET    | `/api/risk/portfolio/{portfolioId}/history` | Get historical risk snapshots     | 
 | GET    | `/api/risk/health`                          | Service health check              | 
+
+### Notification Service (Port 8083)
+
+#### Notifications
+| Method | Endpoint                                    | Description                       |
+|--------|---------------------------------------------|-----------------------------------|
+| GET    | `/api/notifications/{userId}`               | Get all notifications for user    |          
+| GET    | `/api/notifications/{userId}/unread/count`  | Get unread notification count     | 
+| PUT    | `/api/notifications/{notificationId}/read`  | Mark notification as read         | 
+| PUT    | `/api/notifications/{userId}/read-all`      | Mark all notifications as read    | 
+| DELETE | `/api/notifications/{notificationId}`       | Delete a notification             | 
+
+#### Alert Rules
+| Method | Endpoint                     | Description                       |
+|--------|------------------------------|-----------------------------------|
+| GET    | `/api/alert/rules/{userId}`  | Get user's alert rules            |          
+| POST   | `/api/alerts/rules`          | Create new alert rule             | 
+| PUT    | `/api/alerts/rules/{ruleId}` | Update alert rule                 | 
+| DELETE | `/api/alerts/rules/{ruleId}` | Delete alert rule                 | 
 
 ---
 
@@ -150,7 +169,7 @@ The Risk Engine calculates these financial metrics in real-time:
 
 ```
 Portfolio-Risk-Analysis-Platform/
-├── docker-compose.yml                     # PostgreSQL, Redis, Kafka, Zookeeper
+├── docker-compose.yml                     # PostgreSQL, Redis, Kafka, Zookeeper, RabbitMQ
 ├── README.md
 ├── portfolio-service/                     # Microservice 1 (Port 8081)
 │   ├── src/main/java/com/portfolio/service/
@@ -174,9 +193,19 @@ Portfolio-Risk-Analysis-Platform/
 │   │   └── service/                       # Price fetcher & Risk calculator
 │   └── src/main/resources/
 │       └── application.yml
-├── notification-service/                  # Microservice 3
-└── frontend/                              # React Application
-└── frontend/  
+├── notification-service/                  # Microservice 3 (Port 8083)
+│   ├── src/main/java/com/portfolio/notification/
+│   │   ├── config/                        # RabbitMQ configuration
+│   │   ├── controller/                    # Notification & Alert Rule endpoints
+│   │   ├── dto/                           # Alert messages & request objects
+│   │   ├── kafka/                         # Kafka consumer for price updates
+│   │   ├── model/                         # Notification, AlertRule
+│   │   ├── rabbitmq/                      # RabbitMQ alert consumer
+│   │   ├── repository/                    # Data access layer
+│   │   └── service/                       # Alert evaluator & notification logic
+│   └── src/main/resources/
+│       └── application.yml
+└── frontend/                              # React Application 
 ```                        
 
 ---
