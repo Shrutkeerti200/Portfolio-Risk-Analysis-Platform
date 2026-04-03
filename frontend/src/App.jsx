@@ -5,6 +5,7 @@ import ProtectedRoute from './components/common/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
+import PortfoliosPage from './pages/PortfoliosPage';
 
 function AppLayout({ children }) {
   return (
@@ -49,7 +50,7 @@ function App() {
             element={
               <ProtectedRoute>
                 <AppLayout>
-                  <PlaceholderPage title="Portfolios" />
+                  <PortfoliosPage/>
                 </AppLayout>
               </ProtectedRoute>
             }

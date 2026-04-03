@@ -1,7 +1,7 @@
 import api from './api';
 
 const portfolioService = {
-    async getPortfolios() {
+    async getAllPortfolios() {
         const response = await api.get('/portfolios');
         return response.data;
     },

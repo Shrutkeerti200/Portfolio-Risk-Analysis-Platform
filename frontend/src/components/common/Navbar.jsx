@@ -5,7 +5,6 @@ import {
     BriefcaseIcon,
     BellIcon,
     CogIcon,
-    ArrowRightOnRectangleIcon,
 } from '@heroicons/react/24/outline';
 
 export default function Navbar() {
@@ -19,10 +18,10 @@ export default function Navbar() {
     };
 
     const navItems = [
-        { name: 'Dashboard', label: 'Dashboard', icon: ChartBarIcon },
-        { name: 'Portfolios', label: 'Portfolios', icon: BriefcaseIcon },
-        { name: 'Alerts', label: 'Alerts', icon: BellIcon },
-        { name: 'Settings', label: 'Settings', icon: CogIcon },
+        { path: '/dashboard', label: 'Dashboard', icon: ChartBarIcon },
+        { path: '/portfolios', label: 'Portfolios', icon: BriefcaseIcon },
+        { path: '/notifications', label: 'Alerts', icon: BellIcon },
+        { path: '/settings', label: 'Settings', icon: CogIcon },
     ];
 
     const isActive = (path) => location.pathname === path;
@@ -38,13 +37,12 @@ export default function Navbar() {
                         <div className="hidden md:flex space-x-1">
                             {navItems.map((item) => (
                                 <Link
-                                    key={item.name}
+                                    key={item.path}
                                     to={item.path}
-                                    className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                        isActive(item.path)
+                                    className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive(item.path)
                                             ? 'bg-gray-900 text-white'
                                             : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                                    }`}
+                                        }`}
                                 >
                                     <item.icon className="h-5 w-5 mr-1.5" />
                                     {item.label}
@@ -59,9 +57,11 @@ export default function Navbar() {
                         </span>
                         <button
                             onClick={handleLogout}
-                            className="flex items-center text-gray-300 hover:text-white transition-colors"
+                            className="flex items-center gap-1 text-gray-300 hover:text-white transition-colors"
                         >
-                            <ArrowRightStartOnRectangleIcon className="h-5 w-5" />
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+                            </svg>
                             Logout
                         </button>
                     </div>
