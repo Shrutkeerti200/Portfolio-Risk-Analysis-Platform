@@ -45,6 +45,13 @@ public class User {
     @Column(name = "last_name", length=100)
     private String lastName;
 
+    @Column(name = "phone", length=20)
+    private String phone;
+
+    @Column(name = "email_verified", nullable = false)
+    @Builder.Default
+    private Boolean emailVerified = false; 
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default

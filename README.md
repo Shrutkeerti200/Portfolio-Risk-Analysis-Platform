@@ -6,6 +6,7 @@ A real-time portfolio risk analytics platform built with a microservices archite
 
 ## Features
 
+- **User Authentication** — JWT-based auth with email OTP verification, password strength validation, and email alias normalization
 - **Portfolio Management** — Create portfolios, add/remove stock holdings, track buy/sell transactions
 - **Real-Time Market Data** — Live stock prices streamed via Kafka from the Finnhub API
 - **Risk Analytics** — Automated calculation of Volatility, Sharpe Ratio, Value at Risk (VaR), and Portfolio Beta
@@ -34,7 +35,7 @@ The platform follows an event-driven microservices architecture with three indep
 
 | Layer        | Technology                                                  |
 |--------------|-------------------------------------------------------------|
-| Backend      | Java 21, Spring Boot 3.2+, Spring Security, Spring Data JPA |
+| Backend      | Java 21, Spring Boot 3.5, Spring Security, Spring Data JPA |
 | Streaming    | Apache Kafka (real-time price feeds)                        |
 | Messaging    | RabbitMQ (alerts & task queues)                             |
 | Caching      | Redis (current prices & risk metrics)                       |
@@ -53,7 +54,7 @@ The platform follows an event-driven microservices architecture with three indep
 
 | Service                  | Port | Responsibility                                                                 |
 |--------------------------|------|--------------------------------------------------------------------------------|
-| **Portfolio Service**    | 8081 | User auth (JWT), portfolio CRUD, holdings management, WebSocket broadcaster    |
+| **Portfolio Service**    | 8081 | User auth (JWT+OTP), portfolio CRUD, holdings management, WebSocket broadcaster    |
 | **Risk Engine Service**  | 8082 | Price fetching (Finnhub), Kafka streaming, risk calculations, alert evaluation |
 | **Notification Service** | 8083 | RabbitMQ consumer, alert processing, notification storage & delivery           |
 
@@ -66,8 +67,10 @@ The platform follows an event-driven microservices architecture with three indep
 #### Authentication
 | Method | Endpoint             | Description              | Auth Required |
 |--------|----------------------|--------------------------|---------------|
-| POST   | `/api/auth/register` | Register new user        | No            |
-| POST   | `/api/auth/login`    | Login, returns JWT token | No            |
+| POST   | `/api/auth/register` | Register new user(sends OTP)        | No            |
+| POST   | `/api/auth/login`    | Login (requires verified email) | No            |
+| POST   | `/api/auth/verify`    | Verify email with OTP code | No            |
+| POST   | `/api/auth/resend-otp`    | Resend OTP to email | No            |
 | GET    | `/api/auth/me`       | Get current user profile | Yes           |
 
 #### Portfolios
@@ -121,6 +124,17 @@ The platform follows an event-driven microservices architecture with three indep
 
 ---
 
+## Security Features
+- **JWT Authentication** — Stateless token-based auth with configurable expiration
+- **Email OTP Verification** — 6-digit code sent via Gmail SMTP during registration
+- **Password Policy** — Minimum 10 characters with uppercase, lowercase, number, and special character
+- **Email Alias Normalization** — Prevents duplicate accounts via Gmail dot tricks and + aliases
+- **OTP Rate Limiting** — Maximum 5 OTP requests per 15 minutes per email
+- **OTP Attempt Limiting** — Maximum 3 incorrect attempts per OTP code
+- **Environment Variables** — All secrets stored in .env (gitignored), never hardcoded
+
+---
+
 ## Risk Metrics
 The Risk Engine calculates these financial metrics in real-time:
 
@@ -158,6 +172,7 @@ The Risk Engine calculates these financial metrics in real-time:
  - Risk Engine — Risk calculation engine (Volatility, Sharpe, VaR, Beta)
  - Risk Engine — Redis caching & PostgreSQL storage
  - Notification Service — RabbitMQ alert pipeline
+ - React Frontend — Auth pages (Login, Register, Email Verification)
  - React Frontend — Dashboard, charts, real-time updates
  - AI-Powered Portfolio Insight Assistant
  - Integration testing & end-to-end flow
@@ -169,43 +184,57 @@ The Risk Engine calculates these financial metrics in real-time:
 
 ```
 Portfolio-Risk-Analysis-Platform/
-├── docker-compose.yml                     # PostgreSQL, Redis, Kafka, Zookeeper, RabbitMQ
+├── docker-compose.yml                      # PostgreSQL, Redis, Kafka, Zookeeper, RabbitMQ
+├── .env.example                            # Environment variable template
 ├── README.md
-├── portfolio-service/                     # Microservice 1 (Port 8081)
-│   ├── src/main/java/com/portfolio/service/
-│   │   ├── config/                        # Security configuration
-│   │   ├── controller/                    # Auth, Portfolio, Holdings controllers
-│   │   ├── dto/                           # Request/Response objects
-│   │   ├── model/                         # User, Portfolio, Holding, Transaction
-│   │   ├── repository/                    # Data access layer
-│   │   ├── security/                      # JWT token & auth filter
-│   │   └── service/                       # Business logic
-│   └── src/main/resources/
-│       └── application.yml
-├── risk-engine-service/                   # Microservice 2 (Port 8082)
-│   ├── src/main/java/com/portfolio/risk/
-│   │   ├── client/                        # Finnhub API client
-│   │   ├── controller/                    # Risk data endpoints
-│   │   ├── dto/                           # Kafka message objects
-│   │   ├── kafka/                         # Producer & Consumer
-│   │   ├── model/                         # StockPrice, RiskSnapshot
-│   │   ├── repository/                    # Data access layer
-│   │   └── service/                       # Price fetcher & Risk calculator
-│   └── src/main/resources/
-│       └── application.yml
-├── notification-service/                  # Microservice 3 (Port 8083)
-│   ├── src/main/java/com/portfolio/notification/
-│   │   ├── config/                        # RabbitMQ configuration
-│   │   ├── controller/                    # Notification & Alert Rule endpoints
-│   │   ├── dto/                           # Alert messages & request objects
-│   │   ├── kafka/                         # Kafka consumer for price updates
-│   │   ├── model/                         # Notification, AlertRule
-│   │   ├── rabbitmq/                      # RabbitMQ alert consumer
-│   │   ├── repository/                    # Data access layer
-│   │   └── service/                       # Alert evaluator & notification logic
-│   └── src/main/resources/
-│       └── application.yml
-└── frontend/                              # React Application 
+│
+├── portfolio-service/                      # Microservice 1 (Port 8081)
+│   ├── pom.xml
+│   └── src/main/java/com/portfolio/service/
+│       ├── config/                         # SecurityConfig
+│       ├── controller/                     # AuthController, PortfolioController, HoldingsController
+│       ├── dto/                            # RegisterRequest, LoginRequest, OtpRequest, OtpVerifyRequest
+│       ├── model/                          # User, Portfolio, Holding, Transaction, OtpVerification
+│       ├── repository/                     # JPA repositories
+│       ├── security/                       # JwtTokenProvider, JwtAuthFilter
+│       └── service/                        # AuthService, OtpService, EmailService
+│
+├── risk-engine-service/                    # Microservice 2 (Port 8082)
+│   ├── pom.xml
+│   └── src/main/java/com/portfolio/risk/
+│       ├── client/                         # Finnhub API client
+│       ├── controller/                     # Risk data endpoints
+│       ├── dto/                            # Kafka message objects
+│       ├── kafka/                          # Producer & Consumer
+│       ├── model/                          # StockPrice, RiskSnapshot
+│       ├── repository/                     # Data access layer
+│       └── service/                        # Price fetcher & Risk calculator
+│
+├── notification-service/                   # Microservice 3 (Port 8083)
+│   ├── pom.xml
+│   └── src/main/java/com/portfolio/notification/
+│       ├── config/                         # RabbitMQ configuration
+│       ├── controller/                     # Notification & Alert Rule endpoints
+│       ├── dto/                            # Alert messages & request objects
+│       ├── kafka/                          # Kafka consumer for price updates
+│       ├── model/                          # Notification, AlertRule
+│       ├── rabbitmq/                       # RabbitMQ alert consumer
+│       ├── repository/                     # Data access layer
+│       └── service/                        # Alert evaluator & notification logic
+│
+├── frontend/                               # React Application
+│   ├── package.json
+│   ├── tailwind.config.js
+│   └── src/
+│       ├── context/                        # AuthContext (JWT state management)
+│       ├── services/                       # api.js, authService.js, portfolioService.js
+│       ├── components/
+│       │   ├── common/                     # Navbar, ProtectedRoute
+│       │   ├── dashboard/                  # (coming soon)
+│       │   ├── portfolio/                  # (coming soon)
+│       │   └── notifications/              # (coming soon)
+│       ├── pages/                          # LoginPage, RegisterPage, VerifyEmailPage
+
 ```                        
 
 ---
@@ -221,23 +250,44 @@ Portfolio-Risk-Analysis-Platform/
 - Docker Desktop (6GB+ RAM allocated)
 - Finnhub API key (free at [finnhub.io](https://finnhub.io))
 
-### Running Locally
-
-### 1. Clone the repository
+### Environment Setup
+# 1. Clone the repository
 git clone https://github.com/Shrutkeerti200/Portfolio-Risk-Analysis-Platform.git
 cd Portfolio-Risk-Analysis-Platform
 
-### 2. Start infrastructure (PostgreSQL & Redis)
+# 2. Create environment file
+cp .env.example .env
+# Edit .env with your credentials
+
+# 3. Start infrastructure (PostgreSQL, Redis, Kafka, Zookeeper, RabbitMQ)
 docker compose up -d
 
-### 3. Run Portfolio Service
-- cd portfolio-service
-- ./mvnw clean spring-boot:run
+### Running Backend Services
 
-### 4. Test the API
-Register: POST http://localhost:8081/api/auth/register
-Login:    POST http://localhost:8081/api/auth/login
-Profile:  GET  http://localhost:8081/api/auth/me (requires Bearer token)
+# Load environment variables (PowerShell)
+Get-Content .\.env | ForEach-Object {
+    if ($_ -match '^\s*([^#][^=]*?)\s*=\s*(.*)\s*$') {
+        [System.Environment]::SetEnvironmentVariable($matches[1], $matches[2], 'Process')
+    }
+}
+
+# Start Portfolio Service (port 8081)
+cd portfolio-service
+./mvnw spring-boot:run
+
+# Start Risk Engine Service (port 8082) — in a new terminal
+cd risk-engine-service
+./mvnw spring-boot:run
+
+# Start Notification Service (port 8083) — in a new terminal
+cd notification-service
+./mvnw spring-boot:run
+
+### Running Frontend
+- cd frontend
+-npm install
+-npm run dev
+# Opens at http://localhost:5173
 
 ### Stopping the Application
 

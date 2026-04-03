@@ -8,8 +8,8 @@ spring:
   # PostgreSQL Configuration
   datasource:
     url: jdbc:postgresql://localhost:5433/portfolio_db
-    username: portfolio_user
-    password: portfolio_pass
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
   # JPA / Hibernate Configuration
@@ -42,7 +42,7 @@ kafka:
 
 # Finnhub API Configuration
 finnhub:
-  api-key: d73hc91r01qjjol32uj0d73hc91r01qjjol32ujg
+  api-key: ${FINNHUB_API_KEY}
   base-url: https://finnhub.io/api/v1
 
 # Actuator

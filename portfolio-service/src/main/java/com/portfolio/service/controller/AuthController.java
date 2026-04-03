@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.portfolio.service.dto.AuthResponse;
 import com.portfolio.service.dto.LoginRequest;
+import com.portfolio.service.dto.OtpRequest;
+import com.portfolio.service.dto.OtpVerifyRequest;
 import com.portfolio.service.dto.RegisterRequest;
 import com.portfolio.service.service.AuthService;
 
@@ -61,6 +63,38 @@ public class AuthController {
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+        }
+    }
+
+    @PostMapping("/verify-email")
+    public ResponseEntity<?> verifyEmail(@Valid @RequestBody OtpVerifyRequest request, BindingResult bindingResult) {
+        if (bindingResult.hasErrors()) {
+            Map<String, String> errors = new HashMap<>();
+            bindingResult.getFieldErrors().forEach(error ->
+                errors.put(error.getField(), error.getDefaultMessage()));
+            return ResponseEntity.badRequest().body(errors);
+        }
+        try {
+            authService.verifyEmail(request.getEmail(), request.getOtpCode());
+            return ResponseEntity.ok(Map.of("message", "Email verified successfully. You can now login."));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/resend-otp")
+    public ResponseEntity<?> resendOtp(@Valid @RequestBody OtpRequest request, BindingResult bindingResult) {
+        if (bindingResult.hasErrors()) {
+            Map<String, String> errors = new HashMap<>();
+            bindingResult.getFieldErrors().forEach(error ->
+                errors.put(error.getField(), error.getDefaultMessage()));
+            return ResponseEntity.badRequest().body(errors);
+        }
+        try {
+            authService.resendOtp(request.getEmail());
+            return ResponseEntity.ok(Map.of("message", "OTP sent successfully."));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }
 
