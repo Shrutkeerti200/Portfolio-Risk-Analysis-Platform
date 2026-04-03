@@ -251,35 +251,35 @@ Portfolio-Risk-Analysis-Platform/
 - Finnhub API key (free at [finnhub.io](https://finnhub.io))
 
 ### Environment Setup
-# 1. Clone the repository
+#### 1. Clone the repository
 git clone https://github.com/Shrutkeerti200/Portfolio-Risk-Analysis-Platform.git
 cd Portfolio-Risk-Analysis-Platform
 
-# 2. Create environment file
+#### 2. Create environment file
 cp .env.example .env
-# Edit .env with your credentials
+#### Edit .env with your credentials
 
-# 3. Start infrastructure (PostgreSQL, Redis, Kafka, Zookeeper, RabbitMQ)
+#### 3. Start infrastructure (PostgreSQL, Redis, Kafka, Zookeeper, RabbitMQ)
 docker compose up -d
 
 ### Running Backend Services
 
-# Load environment variables (PowerShell)
+#### Load environment variables (PowerShell)
 Get-Content .\.env | ForEach-Object {
     if ($_ -match '^\s*([^#][^=]*?)\s*=\s*(.*)\s*$') {
         [System.Environment]::SetEnvironmentVariable($matches[1], $matches[2], 'Process')
     }
 }
 
-# Start Portfolio Service (port 8081)
+#### Start Portfolio Service (port 8081)
 cd portfolio-service
 ./mvnw spring-boot:run
 
-# Start Risk Engine Service (port 8082) — in a new terminal
+#### Start Risk Engine Service (port 8082) — in a new terminal
 cd risk-engine-service
 ./mvnw spring-boot:run
 
-# Start Notification Service (port 8083) — in a new terminal
+#### Start Notification Service (port 8083) — in a new terminal
 cd notification-service
 ./mvnw spring-boot:run
 
@@ -287,7 +287,7 @@ cd notification-service
 - cd frontend
 -npm install
 -npm run dev
-# Opens at http://localhost:5173
+#### Opens at http://localhost:5173
 
 ### Stopping the Application
 
