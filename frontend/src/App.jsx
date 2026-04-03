@@ -7,6 +7,7 @@ import RegisterPage from './pages/RegisterPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import PortfoliosPage from './pages/PortfoliosPage';
 import PortfolioDetailPage from './pages/PortfolioDetailPage';
+import DashboardPage from './pages/DashboardPage';
 
 function AppLayout({ children }) {
   return (
@@ -41,7 +42,7 @@ function App() {
             element={
               <ProtectedRoute>
                 <AppLayout>
-                  <PlaceholderPage title="Dashboard" />
+                  <DashboardPage />
                 </AppLayout>
               </ProtectedRoute>
             }
