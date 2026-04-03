@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import PortfoliosPage from './pages/PortfoliosPage';
+import PortfolioDetailPage from './pages/PortfolioDetailPage';
 
 function AppLayout({ children }) {
   return (
@@ -50,7 +51,17 @@ function App() {
             element={
               <ProtectedRoute>
                 <AppLayout>
-                  <PortfoliosPage/>
+                  <PortfoliosPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/portfolios/:id"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <PortfolioDetailPage />
                 </AppLayout>
               </ProtectedRoute>
             }
