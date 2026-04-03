@@ -8,6 +8,7 @@ import VerifyEmailPage from './pages/VerifyEmailPage';
 import PortfoliosPage from './pages/PortfoliosPage';
 import PortfolioDetailPage from './pages/PortfolioDetailPage';
 import DashboardPage from './pages/DashboardPage';
+import SettingsPage from './pages/SettingsPage';
 
 function AppLayout({ children }) {
   return (
@@ -82,7 +83,7 @@ function App() {
             element={
               <ProtectedRoute>
                 <AppLayout>
-                  <PlaceholderPage title="Settings" />
+                  <SettingsPage />
                 </AppLayout>
               </ProtectedRoute>
             }

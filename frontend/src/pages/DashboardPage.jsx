@@ -7,6 +7,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts';
 import { BriefcaseIcon, CurrencyDollarIcon, ChartBarIcon, ScaleIcon } from '@heroicons/react/24/outline';
+import AiAssistant from '../components/dashboard/AiAssistant';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
 
@@ -111,6 +112,26 @@ export default function DashboardPage() {
             </div>
         );
     }
+
+    const buildPortfolioContext = () => {
+        let context = `Total Portfolios: ${totalPortfolios}\n`;
+        context += `Total Invested: $${totalInvested.toFixed(2)}\n`;
+        context += `Total Holdings: ${totalHoldings}\n`;
+        context += `Unique Stocks: ${uniqueStocks}\n\n`;
+        context += `Portfolios:\n`;
+        portfolios.forEach((p) => {
+            const h = p.holdings || [];
+            const inv = h.reduce((s, x) => s + x.quantity * x.avgBuyPrice, 0);
+            const symbols = h.map((x) => x.stockSymbol).join(', ');
+            context += `- ${p.name}: $${inv.toFixed(2)} invested, ${h.length} holdings (${symbols})\n`;
+        });
+        context += `\nAll Holdings:\n`;
+        topHoldings.forEach((h) => {
+            const pct = ((h.totalValue / totalInvested) * 100).toFixed(1);
+            context += `- ${h.stockSymbol} (${h.portfolioName}): ${h.quantity} shares at $${h.avgBuyPrice} avg, total $${h.totalValue.toFixed(2)}, ${pct}% allocation\n`;
+        });
+        return context;
+    };
 
     return (
         <div>
@@ -309,6 +330,9 @@ export default function DashboardPage() {
                     <p className="text-gray-400 text-center py-10">No holdings across any portfolio.</p>
                 )}
             </div>
+
+            {/* AI Assistant */}
+            <AiAssistant portfolioContext={buildPortfolioContext()} />
         </div>
     );
 }
