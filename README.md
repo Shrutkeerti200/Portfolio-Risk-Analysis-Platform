@@ -1,4 +1,4 @@
-# Finlytics - Portfolio Risk Analytics Platform
+# Riskient - Portfolio Risk Analytics Platform
 
 A real-time portfolio risk analytics platform built with a microservices architecture. Users create investment portfolios, and the system continuously fetches live market data, computes risk metrics, and displays everything on an interactive dashboard with real-time updates.
 

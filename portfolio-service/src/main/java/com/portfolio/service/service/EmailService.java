@@ -36,7 +36,7 @@ public class EmailService {
     private String buildOtpEmailBody(String otpCode) {
         return """
                 <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #1f2937; border-radius: 12px; color: #e5e7eb;">
-                    <h2 style="color: #ffffff; text-align: center; margin-bottom: 8px;">Finlytics</h2>
+                    <h2 style="color: #ffffff; text-align: center; margin-bottom: 8px;">Riskient</h2>
                     <p style="text-align: center; color: #9ca3af; margin-bottom: 24px;">Email Verification</p>
                     <div style="background: #111827; border-radius: 8px; padding: 24px; text-align: center; margin-bottom: 24px;">
                         <p style="color: #9ca3af; margin-bottom: 12px;">Your verification code is:</p>

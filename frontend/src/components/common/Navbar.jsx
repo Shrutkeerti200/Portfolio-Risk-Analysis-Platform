@@ -44,9 +44,9 @@ export default function Navbar() {
                                     </linearGradient>
                                 </defs>
                                 <rect width="64" height="64" rx="14" fill="url(#navGrad)" />
-                                <text x="50%" y="54%" dominantBaseline="middle" textAnchor="middle" fontFamily="Arial" fontWeight="bold" fontSize="36" fill="white">F</text>
+                                <text x="50%" y="54%" dominantBaseline="middle" textAnchor="middle" fontFamily="Arial" fontWeight="bold" fontSize="36" fill="white">R</text>
                             </svg>
-                            Finlytics
+                            Riskient
                         </Link>
                         <div className="hidden md:flex space-x-1">
                             {navItems.map((item) => (

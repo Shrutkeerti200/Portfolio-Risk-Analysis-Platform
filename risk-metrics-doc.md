@@ -1,6 +1,6 @@
-# Finlytics — Financial Terms & Formulas Explained
+# Riskient — Financial Terms & Formulas Explained
 
-This document explains all the financial terms, risk metrics, and formulas used in the Finlytics platform. Written for developers and users who want to understand the calculations behind the dashboard.
+This document explains all the financial terms, risk metrics, and formulas used in the Riskient platform. Written for developers and users who want to understand the calculations behind the dashboard.
 
 ---
 
@@ -324,17 +324,17 @@ An architectural style where the application is composed of small, independently
 - **Notification Service** — Alert evaluation, notifications
 
 ### Apache Kafka
-A distributed streaming platform used for real-time data pipelines. In Finlytics:
+A distributed streaming platform used for real-time data pipelines. In Riskient:
 - **Producer:** Risk Engine publishes stock prices to Kafka topic `stock-price-updates`
 - **Consumer:** Risk Engine and Notification Service consume prices and trigger calculations
 
 ### RabbitMQ
-A message broker for reliable task-based messaging. In Finlytics:
+A message broker for reliable task-based messaging. In Riskient:
 - Risk Engine publishes alert messages to RabbitMQ when risk thresholds are exceeded
 - Notification Service consumes these messages and creates user notifications
 
 ### Redis
-An in-memory data store used for caching. In Finlytics:
+An in-memory data store used for caching. In Riskient:
 - Caches current stock prices for fast dashboard reads
 - Caches risk metrics to avoid recalculating on every page load
 

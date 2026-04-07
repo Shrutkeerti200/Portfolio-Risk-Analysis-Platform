@@ -41,7 +41,7 @@ export default function LoginPage() {
         <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
             <div className="max-w-md w-full bg-gray-800 rounded-xl shadow-2xl p-8">
                 <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold text-white">Finlytics</h1>
+                    <h1 className="text-3xl font-bold text-white">Riskient</h1>
                     <p className="text-blue-400 text-sm mt-1">Portfolio Risk Analytics</p>
                     <p className="text-gray-400 mt-2">Sign in to your account</p>
                 </div>
