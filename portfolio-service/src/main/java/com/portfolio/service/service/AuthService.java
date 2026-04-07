@@ -43,6 +43,7 @@ public class AuthService {
         otpService.sendOtp(normalizedEmail);
 
         return AuthResponse.builder()
+                .id(user.getId().toString())
                 .token(null)
                 .email(savedUser.getEmail())
                 .firstName(savedUser.getFirstName())
@@ -71,6 +72,7 @@ public class AuthService {
         String token = tokenProvider.generateToken(user.getEmail(), user.getRole().name());
 
         return AuthResponse.builder()
+                .id(user.getId().toString())
                 .token(token)
                 .email(user.getEmail())
                 .firstName(user.getFirstName())
