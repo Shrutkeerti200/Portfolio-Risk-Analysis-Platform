@@ -247,7 +247,7 @@ export default function PortfolioDetailPage() {
                     </button>
                 </div>
             ) : (
-                <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+                <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-x-auto">
                     <table className="w-full">
                         <thead>
                             <tr className="border-b border-gray-700">

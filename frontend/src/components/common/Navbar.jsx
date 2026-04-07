@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -5,12 +6,15 @@ import {
     BriefcaseIcon,
     BellIcon,
     CogIcon,
+    Bars3Icon,
+    XMarkIcon,
 } from '@heroicons/react/24/outline';
 
 export default function Navbar() {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     const handleLogout = () => {
         logout();
@@ -51,7 +55,8 @@ export default function Navbar() {
                         </div>
                     </div>
 
-                    <div className="flex items-center space-x-4">
+                    {/* Desktop user info */}
+                    <div className="hidden md:flex items-center space-x-4">
                         <span className="text-sm text-gray-300">
                             {user?.firstName} {user?.lastName}
                         </span>
@@ -65,7 +70,56 @@ export default function Navbar() {
                             Logout
                         </button>
                     </div>
+
+                    {/* Mobile menu button */}
+                    <div className="md:hidden">
+                        <button
+                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                            className="text-gray-300 hover:text-white"
+                        >
+                            {mobileMenuOpen ? (
+                                <XMarkIcon className="h-6 w-6" />
+                            ) : (
+                                <Bars3Icon className="h-6 w-6" />
+                            )}
+                        </button>
+                    </div>
                 </div>
+
+                {/* Mobile menu */}
+                {mobileMenuOpen && (
+                    <div className="md:hidden pb-4">
+                        <div className="space-y-1">
+                            {navItems.map((item) => (
+                                <Link
+                                    key={item.path}
+                                    to={item.path}
+                                    onClick={() => setMobileMenuOpen(false)}
+                                    className={`flex items-center px-3 py-3 rounded-lg text-sm font-medium transition-colors ${isActive(item.path)
+                                            ? 'bg-gray-900 text-white'
+                                            : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                                        }`}
+                                >
+                                    <item.icon className="h-5 w-5 mr-2" />
+                                    {item.label}
+                                </Link>
+                            ))}
+                        </div>
+                        <div className="mt-4 pt-4 border-t border-gray-700">
+                            <div className="flex items-center justify-between px-3">
+                                <span className="text-sm text-gray-300">
+                                    {user?.firstName} {user?.lastName}
+                                </span>
+                                <button
+                                    onClick={handleLogout}
+                                    className="text-red-400 hover:text-red-300 text-sm font-medium"
+                                >
+                                    Logout
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </nav>
     );
