@@ -38,7 +38,7 @@ const portfolioService = {
     },
 
     async removeHolding(portfolioId, holdingId) {
-        const response = await api.delete(`/portfolios/${portfolioId}/holdings/${holdingId}`);
+        const response = await api.delete(`/portfolios/holdings/${holdingId}`);
         return response.data;
     },
 

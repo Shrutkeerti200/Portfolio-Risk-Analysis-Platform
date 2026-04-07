@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import portfolioService from '../services/portfolioService';
+import riskService from '../services/riskService';
 import { PlusIcon, TrashIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 
 export default function PortfolioDetailPage() {
     const { id } = useParams();
     const [portfolio, setPortfolio] = useState(null);
     const [holdings, setHoldings] = useState([]);
+    const [prices, setPrices] = useState({});
+    const [riskData, setRiskData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [showAddForm, setShowAddForm] = useState(false);
@@ -19,6 +22,8 @@ export default function PortfolioDetailPage() {
 
     useEffect(() => {
         fetchPortfolioData();
+        const interval = setInterval(fetchLiveData, 30000);
+        return () => clearInterval(interval);
     }, [id]);
 
     const fetchPortfolioData = async () => {
@@ -26,11 +31,32 @@ export default function PortfolioDetailPage() {
             const portfolioData = await portfolioService.getPortfolioById(id);
             setPortfolio(portfolioData);
             setHoldings(portfolioData.holdings || []);
+
+            const symbols = (portfolioData.holdings || []).map(h => h.stockSymbol);
+            if (symbols.length > 0) {
+                const priceData = await riskService.getStockPrices(symbols);
+                setPrices(priceData);
+            }
+
+            const risk = await riskService.getPortfolioRisk(id);
+            setRiskData(risk);
         } catch (err) {
             setError('Failed to load portfolio.');
         } finally {
             setLoading(false);
         }
+    };
+
+    const fetchLiveData = async () => {
+        try {
+            const symbols = holdings.map(h => h.stockSymbol);
+            if (symbols.length > 0) {
+                const priceData = await riskService.getStockPrices(symbols);
+                setPrices(priceData);
+            }
+            const risk = await riskService.getPortfolioRisk(id);
+            setRiskData(risk);
+        } catch { }
     };
 
     const handleAddHolding = async (e) => {
@@ -63,12 +89,8 @@ export default function PortfolioDetailPage() {
         }
     };
 
-    const formatCurrency = (value) => {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-        }).format(value);
-    };
+    const fmt = (value) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+    const fmtShort = (value) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
 
     if (loading) {
         return (
@@ -82,14 +104,18 @@ export default function PortfolioDetailPage() {
         return (
             <div className="text-center py-20">
                 <p className="text-red-400">Portfolio not found.</p>
-                <Link to="/portfolios" className="text-blue-400 hover:text-blue-300 mt-4 inline-block">
-                    ← Back to Portfolios
-                </Link>
+                <Link to="/portfolios" className="text-blue-400 hover:text-blue-300 mt-4 inline-block">← Back to Portfolios</Link>
             </div>
         );
     }
 
     const totalInvested = holdings.reduce((sum, h) => sum + (h.quantity * h.avgBuyPrice), 0);
+    const totalCurrentValue = holdings.reduce((sum, h) => {
+        const price = prices[h.stockSymbol]?.price || h.avgBuyPrice;
+        return sum + (h.quantity * price);
+    }, 0);
+    const totalPL = totalCurrentValue - totalInvested;
+    const totalPLPercent = totalInvested > 0 ? (totalPL / totalInvested) * 100 : 0;
 
     return (
         <div>
@@ -101,9 +127,7 @@ export default function PortfolioDetailPage() {
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h1 className="text-2xl font-bold text-white">{portfolio.name}</h1>
-                    {portfolio.description && (
-                        <p className="text-gray-400 mt-1">{portfolio.description}</p>
-                    )}
+                    {portfolio.description && <p className="text-gray-400 mt-1">{portfolio.description}</p>}
                 </div>
                 <button
                     onClick={() => setShowAddForm(!showAddForm)}
@@ -114,27 +138,38 @@ export default function PortfolioDetailPage() {
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                 <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
                     <p className="text-gray-400 text-sm">Total Invested</p>
-                    <p className="text-2xl font-bold text-white mt-1">{formatCurrency(totalInvested)}</p>
+                    <p className="text-2xl font-bold text-white mt-1">{fmtShort(totalInvested)}</p>
+                </div>
+                <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
+                    <p className="text-gray-400 text-sm">Current Value</p>
+                    <p className="text-2xl font-bold text-white mt-1">{fmtShort(totalCurrentValue)}</p>
+                    {Object.keys(prices).length > 0 && (
+                        <p className={`text-sm mt-1 ${totalPL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {totalPL >= 0 ? '▲' : '▼'} {fmt(Math.abs(totalPL))} ({totalPLPercent.toFixed(1)}%)
+                        </p>
+                    )}
                 </div>
                 <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
                     <p className="text-gray-400 text-sm">Holdings</p>
                     <p className="text-2xl font-bold text-white mt-1">{holdings.length}</p>
                 </div>
                 <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
-                    <p className="text-gray-400 text-sm">Created</p>
+                    <p className="text-gray-400 text-sm">Volatility</p>
                     <p className="text-2xl font-bold text-white mt-1">
-                        {new Date(portfolio.createdAt).toLocaleDateString()}
+                        {riskData ? `${(riskData.volatility * 100).toFixed(2)}%` : '—'}
+                    </p>
+                    <p className="text-gray-500 text-xs mt-1">
+                        Beta: {riskData ? riskData.portfolioBeta.toFixed(2) : '—'}
                     </p>
                 </div>
             </div>
 
             {error && (
-                <div className="bg-red-500/10 border border-red-500 text-red-400 px-4 py-3 rounded-lg mb-6 text-sm">
-                    {error}
-                </div>
+                <div className="bg-red-500/10 border border-red-500 text-red-400 px-4 py-3 rounded-lg mb-6 text-sm">{error}</div>
             )}
 
             {showAddForm && (
@@ -200,6 +235,7 @@ export default function PortfolioDetailPage() {
                 </div>
             )}
 
+            {/* Holdings Table */}
             {holdings.length === 0 ? (
                 <div className="text-center py-16 bg-gray-800 rounded-xl border border-gray-700">
                     <p className="text-gray-400 mb-4">No holdings yet. Add your first stock to this portfolio.</p>
@@ -216,41 +252,96 @@ export default function PortfolioDetailPage() {
                         <thead>
                             <tr className="border-b border-gray-700">
                                 <th className="text-left text-sm font-medium text-gray-400 px-6 py-4">Symbol</th>
-                                <th className="text-right text-sm font-medium text-gray-400 px-6 py-4">Quantity</th>
-                                <th className="text-right text-sm font-medium text-gray-400 px-6 py-4">Avg Buy Price</th>
-                                <th className="text-right text-sm font-medium text-gray-400 px-6 py-4">Total Invested</th>
+                                <th className="text-right text-sm font-medium text-gray-400 px-6 py-4">Qty</th>
+                                <th className="text-right text-sm font-medium text-gray-400 px-6 py-4">Avg Cost</th>
+                                <th className="text-right text-sm font-medium text-gray-400 px-6 py-4">Invested</th>
+                                <th className="text-right text-sm font-medium text-gray-400 px-6 py-4">Current Price</th>
+                                <th className="text-right text-sm font-medium text-gray-400 px-6 py-4">Current Value</th>
+                                <th className="text-right text-sm font-medium text-gray-400 px-6 py-4">P/L</th>
                                 <th className="text-right text-sm font-medium text-gray-400 px-6 py-4">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {holdings.map((holding) => (
-                                <tr key={holding.id} className="border-b border-gray-700/50 hover:bg-gray-700/30 transition">
-                                    <td className="px-6 py-4">
-                                        <span className="text-white font-semibold">{holding.stockSymbol}</span>
-                                    </td>
-                                    <td className="text-right px-6 py-4 text-gray-300">{holding.quantity}</td>
-                                    <td className="text-right px-6 py-4 text-gray-300">{formatCurrency(holding.avgBuyPrice)}</td>
-                                    <td className="text-right px-6 py-4 text-white font-medium">
-                                        {formatCurrency(holding.totalInvested || holding.quantity * holding.avgBuyPrice)}
-                                    </td>
-                                    <td className="text-right px-6 py-4">
-                                        <button
-                                            onClick={() => handleDeleteHolding(holding.id)}
-                                            className="text-gray-500 hover:text-red-400 transition"
-                                        >
-                                            <TrashIcon className="h-5 w-5" />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
+                            {holdings.map((holding) => {
+                                const currentPrice = prices[holding.stockSymbol]?.price || null;
+                                const invested = holding.quantity * holding.avgBuyPrice;
+                                const currentValue = currentPrice ? holding.quantity * currentPrice : null;
+                                const pl = currentValue ? currentValue - invested : null;
+                                const plPercent = pl !== null && invested > 0 ? (pl / invested) * 100 : null;
+
+                                return (
+                                    <tr key={holding.id} className="border-b border-gray-700/50 hover:bg-gray-700/30 transition">
+                                        <td className="px-6 py-4">
+                                            <span className="text-white font-semibold">{holding.stockSymbol}</span>
+                                            {prices[holding.stockSymbol]?.changePercent != null && (
+                                                <span className={`text-xs ml-2 ${prices[holding.stockSymbol].changePercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                    {prices[holding.stockSymbol].changePercent >= 0 ? '▲' : '▼'}
+                                                    {Math.abs(prices[holding.stockSymbol].changePercent).toFixed(2)}%
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="text-right px-6 py-4 text-gray-300">{holding.quantity}</td>
+                                        <td className="text-right px-6 py-4 text-gray-300">{fmt(holding.avgBuyPrice)}</td>
+                                        <td className="text-right px-6 py-4 text-gray-300">{fmt(invested)}</td>
+                                        <td className="text-right px-6 py-4">
+                                            {currentPrice ? (
+                                                <span className="text-white font-medium">{fmt(currentPrice)}</span>
+                                            ) : (
+                                                <span className="text-gray-500">—</span>
+                                            )}
+                                        </td>
+                                        <td className="text-right px-6 py-4">
+                                            {currentValue ? (
+                                                <span className="text-white font-medium">{fmt(currentValue)}</span>
+                                            ) : (
+                                                <span className="text-gray-500">—</span>
+                                            )}
+                                        </td>
+                                        <td className="text-right px-6 py-4">
+                                            {pl !== null ? (
+                                                <div>
+                                                    <span className={`font-medium ${pl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                        {pl >= 0 ? '+' : ''}{fmt(pl)}
+                                                    </span>
+                                                    <span className={`text-xs block ${pl >= 0 ? 'text-green-400/70' : 'text-red-400/70'}`}>
+                                                        {pl >= 0 ? '+' : ''}{plPercent.toFixed(1)}%
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <span className="text-gray-500">—</span>
+                                            )}
+                                        </td>
+                                        <td className="text-right px-6 py-4">
+                                            <button
+                                                onClick={() => handleDeleteHolding(holding.id)}
+                                                className="text-gray-500 hover:text-red-400 transition"
+                                            >
+                                                <TrashIcon className="h-5 w-5" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                         <tfoot>
                             <tr className="border-t border-gray-600">
                                 <td className="px-6 py-4 text-white font-semibold">Total</td>
                                 <td></td>
                                 <td></td>
-                                <td className="text-right px-6 py-4 text-white font-bold text-lg">
-                                    {formatCurrency(totalInvested)}
+                                <td className="text-right px-6 py-4 text-gray-300 font-medium">{fmt(totalInvested)}</td>
+                                <td></td>
+                                <td className="text-right px-6 py-4 text-white font-bold">{fmt(totalCurrentValue)}</td>
+                                <td className="text-right px-6 py-4">
+                                    {Object.keys(prices).length > 0 && (
+                                        <div>
+                                            <span className={`font-bold ${totalPL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                {totalPL >= 0 ? '+' : ''}{fmt(totalPL)}
+                                            </span>
+                                            <span className={`text-xs block ${totalPL >= 0 ? 'text-green-400/70' : 'text-red-400/70'}`}>
+                                                {totalPL >= 0 ? '+' : ''}{totalPLPercent.toFixed(1)}%
+                                            </span>
+                                        </div>
+                                    )}
                                 </td>
                                 <td></td>
                             </tr>

@@ -9,6 +9,7 @@ import PortfoliosPage from './pages/PortfoliosPage';
 import PortfolioDetailPage from './pages/PortfolioDetailPage';
 import DashboardPage from './pages/DashboardPage';
 import SettingsPage from './pages/SettingsPage';
+import NotificationsPage from './pages/NotificationsPage';
 
 function AppLayout({ children }) {
   return (
@@ -73,7 +74,7 @@ function App() {
             element={
               <ProtectedRoute>
                 <AppLayout>
-                  <PlaceholderPage title="Notifications" />
+                  <NotificationsPage />
                 </AppLayout>
               </ProtectedRoute>
             }
