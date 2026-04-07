@@ -25,19 +25,19 @@ const notificationService = {
     async markAsRead(notificationId) {
         try {
             await fetch(`${NOTIFICATION_API_URL}/notifications/${notificationId}/read`, { method: 'PUT' });
-        } catch {}
+        } catch { }
     },
 
     async markAllAsRead(userId) {
         try {
             await fetch(`${NOTIFICATION_API_URL}/notifications/${userId}/read-all`, { method: 'PUT' });
-        } catch {}
+        } catch { }
     },
 
     async deleteNotification(notificationId) {
         try {
             await fetch(`${NOTIFICATION_API_URL}/notifications/${notificationId}`, { method: 'DELETE' });
-        } catch {}
+        } catch { }
     },
 
     async getAlertRules(userId) {
@@ -48,6 +48,40 @@ const notificationService = {
         } catch {
             return [];
         }
+    },
+
+    async createAlertRule(ruleData) {
+        try {
+            const response = await fetch(`${NOTIFICATION_API_URL}/alerts/rules`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(ruleData),
+            });
+            if (!response.ok) throw new Error('Failed to create rule');
+            return await response.json();
+        } catch (err) {
+            throw err;
+        }
+    },
+
+    async updateAlertRule(ruleId, ruleData) {
+        try {
+            const response = await fetch(`${NOTIFICATION_API_URL}/alerts/rules/${ruleId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(ruleData),
+            });
+            if (!response.ok) throw new Error('Failed to update rule');
+            return await response.json();
+        } catch (err) {
+            throw err;
+        }
+    },
+
+    async deleteAlertRule(ruleId) {
+        try {
+            await fetch(`${NOTIFICATION_API_URL}/alerts/rules/${ruleId}`, { method: 'DELETE' });
+        } catch { }
     },
 };
 

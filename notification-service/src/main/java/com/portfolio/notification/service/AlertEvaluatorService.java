@@ -22,7 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AlertEvaluatorService {
 
-    private final  AlertRuleRepository alertRuleRepository;
+    private final AlertRuleRepository alertRuleRepository;
     private final NotificationRepository notificationRepository;
     private final EntityManager entityManager;
 
@@ -47,27 +47,27 @@ public class AlertEvaluatorService {
     private void evaluateRule(AlertRule rule) {
         BigDecimal currentValue = getCurrentMetricValue(rule.getPortfolioId(), rule.getMetricType());
 
-        if(currentValue == null) {
+        if (currentValue == null) {
             return;
         }
 
         boolean triggered = false;
 
-        if(rule.getDirection() == AlertRule.Direction.ABOVE &&
-           currentValue.compareTo(rule.getThresholdValue()) > 0) {
+        if (rule.getDirection() == AlertRule.Direction.ABOVE
+                && currentValue.compareTo(rule.getThresholdValue()) > 0) {
             triggered = true;
-        } else if(rule.getDirection() == AlertRule.Direction.BELOW &&
-                  currentValue.compareTo(rule.getThresholdValue()) < 0) {
+        } else if (rule.getDirection() == AlertRule.Direction.BELOW
+                && currentValue.compareTo(rule.getThresholdValue()) < 0) {
             triggered = true;
         }
 
-        if(triggered) {
+        if (triggered) {
             String message = String.format(
-                "Alert: %s is %s (threshold: %s, current: %s)",
-                rule.getMetricType().name(),
-                rule.getDirection() == AlertRule.Direction.ABOVE ? "above" : "below",
-                rule.getThresholdValue().toPlainString(),
-                currentValue.toPlainString()
+                    "Alert: %s is %s (threshold: %s, current: %s)",
+                    rule.getMetricType().name(),
+                    rule.getDirection() == AlertRule.Direction.ABOVE ? "above" : "below",
+                    rule.getThresholdValue().toPlainString(),
+                    currentValue.toPlainString()
             );
 
             log.info("Alert triggered for portfolio {}: {}", rule.getPortfolioId(), message);
@@ -87,20 +87,25 @@ public class AlertEvaluatorService {
     private BigDecimal getCurrentMetricValue(UUID portfolioId, AlertRule.MetricType metricType) {
         try {
             String column = switch (metricType) {
-                case VOLATILITY -> "volatility";
-                case SHARPE_RATIO -> "sharpe_ratio";
-                case VAR -> "var";
-                case BETA -> "beta";
-                case DAILY_RETURN -> "daily_return";
+                case VOLATILITY ->
+                    "volatility";
+                case SHARPE_RATIO ->
+                    "sharpe_ratio";
+                case VAR ->
+                    "value_at_risk";
+                case BETA ->
+                    "portfolio_beta";
+                case DAILY_RETURN ->
+                    "daily_return";
             };
 
             Query query = entityManager.createNativeQuery(
-                "SELECT " + column + " FROM risk_snapshots WHERE portfolio_id = :portfolioId ORDER BY calculated_at DESC LIMIT 1"
+                    "SELECT " + column + " FROM risk_snapshots WHERE portfolio_id = :portfolioId ORDER BY calculated_at DESC LIMIT 1"
             );
             query.setParameter("portfolioId", portfolioId);
 
             List<?> results = query.getResultList();
-            if (results.isEmpty() && results.get(0) != null) {
+            if (!results.isEmpty() && results.get(0) != null) {
                 return new BigDecimal(results.get(0).toString());
             }
         } catch (Exception e) {
@@ -114,7 +119,7 @@ public class AlertEvaluatorService {
     private List<UUID> getPortfolioIdsForStock(String symbol) {
         try {
             Query query = entityManager.createNativeQuery(
-                "SELECT DISTINCT portfolio_id FROM holdings WHERE stock_symbol = :symbol"
+                    "SELECT DISTINCT portfolio_id FROM holdings WHERE stock_symbol = :symbol"
             );
             query.setParameter("symbol", symbol);
 
