@@ -21,6 +21,6 @@ public interface StockPriceRepository extends JpaRepository<StockPrice, Long>{
     @Query("SELECT DISTINCT sp.symbol FROM StockPrice sp")
     List<String> findDistinctSymbols();
 
-    @Query("SELECT sp FROM StockPrice sp WHERE sp.symbol = :symbol ORDER BY sp.fetchedAt DESC LIMIT :limit")
+    @Query(value = "SELECT * FROM stock_prices WHERE symbol = :symbol ORDER BY fetched_at DESC LIMIT :limit", nativeQuery = true)
     List<StockPrice> findRecentPrices(@Param("symbol") String symbol, @Param("limit") int limit);
 }

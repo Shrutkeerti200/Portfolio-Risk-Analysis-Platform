@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.portfolio.risk.model.RiskSnapshot;
+import com.portfolio.risk.model.StockPrice;
 import com.portfolio.risk.repository.RiskSnapshotRepository;
 import com.portfolio.risk.repository.StockPriceRepository;
 import com.portfolio.risk.service.RiskCalculationService;
@@ -74,6 +75,15 @@ public class RiskController {
                     .ifPresent(price -> prices.put(symbol.toUpperCase(), price));
         }
         return ResponseEntity.ok(prices);
+    }
+
+    @GetMapping("/prices/{symbol}/history")
+    public ResponseEntity<?> getPriceHistory(@PathVariable String symbol,
+                                              @RequestParam(defaultValue = "100") int limit) {
+        List<StockPrice> history = stockPriceRepository.findRecentPrices(symbol.toUpperCase(), limit);
+        // Reverse to chronological order
+        java.util.Collections.reverse(history);
+        return ResponseEntity.ok(history);
     }
 
     @GetMapping("/health")
