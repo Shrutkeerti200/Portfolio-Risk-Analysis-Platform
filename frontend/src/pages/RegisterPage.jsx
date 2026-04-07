@@ -137,8 +137,8 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4 py-12">
       <div className="max-w-md w-full bg-gray-800 rounded-xl shadow-2xl p-8">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white">Create an Account</h1>
-          <p className="text-gray-400 mt-2">Start monitoring your portfolio risk</p>
+          <h1 className="text-3xl font-bold text-white">Join Finlytics</h1>
+                    <p className="text-gray-400 mt-2">Start monitoring your portfolio risk in real-time</p>
         </div>
 
         {serverError && (

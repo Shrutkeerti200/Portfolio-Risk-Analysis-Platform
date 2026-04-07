@@ -35,8 +35,18 @@ export default function Navbar() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-16">
                     <div className="flex items-center space-x-8">
-                        <Link to="/dashboard" className="text-xl font-bold text-white">
-                            RiskPlatform
+                        <Link to="/dashboard" className="flex items-center gap-2 text-xl font-bold text-white">
+                            <svg className="w-7 h-7" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+                                <defs>
+                                    <linearGradient id="navGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" style={{ stopColor: '#3b82f6' }} />
+                                        <stop offset="100%" style={{ stopColor: '#8b5cf6' }} />
+                                    </linearGradient>
+                                </defs>
+                                <rect width="64" height="64" rx="14" fill="url(#navGrad)" />
+                                <text x="50%" y="54%" dominantBaseline="middle" textAnchor="middle" fontFamily="Arial" fontWeight="bold" fontSize="36" fill="white">F</text>
+                            </svg>
+                            Finlytics
                         </Link>
                         <div className="hidden md:flex space-x-1">
                             {navItems.map((item) => (
@@ -44,8 +54,8 @@ export default function Navbar() {
                                     key={item.path}
                                     to={item.path}
                                     className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive(item.path)
-                                            ? 'bg-gray-900 text-white'
-                                            : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                                        ? 'bg-gray-900 text-white'
+                                        : 'text-gray-300 hover:bg-gray-700 hover:text-white'
                                         }`}
                                 >
                                     <item.icon className="h-5 w-5 mr-1.5" />
@@ -96,8 +106,8 @@ export default function Navbar() {
                                     to={item.path}
                                     onClick={() => setMobileMenuOpen(false)}
                                     className={`flex items-center px-3 py-3 rounded-lg text-sm font-medium transition-colors ${isActive(item.path)
-                                            ? 'bg-gray-900 text-white'
-                                            : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                                        ? 'bg-gray-900 text-white'
+                                        : 'text-gray-300 hover:bg-gray-700 hover:text-white'
                                         }`}
                                 >
                                     <item.icon className="h-5 w-5 mr-2" />
