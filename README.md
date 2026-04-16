@@ -6,6 +6,51 @@ This platform simulates a simplified version of the risk dashboards used by port
 
 ---
 
+## Screenshots
+
+### Authentication
+| Sign In | Sign Up | Email Verification |
+|---------|---------|-------------------|
+| ![Sign In](screenshots/sign%20in.png) | ![Sign Up](screenshots/sign%20up.png) | ![Email Verification](screenshots/email_verification.png) |
+
+### OTP Verification
+![OTP Verification](screenshots/otp_verification.png)
+
+### Dashboard
+Live data with real-time price updates every 30 seconds.
+
+![Dashboard](screenshots/dashboard.png)
+![Dashboard Charts](screenshots/dashboard2.png)
+![Dashboard Holdings](screenshots/dashboard3.png)
+
+### Dashboard — Market Closed
+Risk metrics persist from last market session instead of resetting to zero.
+
+![Dashboard Market Closed](screenshots/dashboard-market-closed.png)
+
+### Portfolio Management
+![Portfolios](screenshots/portfolios.png)
+
+### Holdings
+Live P/L tracking with color-coded performance bars.
+
+![Holdings](screenshots/holdings.png)
+
+### Alert Rules & Settings
+| Alert Rules | Set Alert Rule | Settings |
+|-------------|---------------|----------|
+| ![Alert Rules](screenshots/alert%20rules.png) | ![Set Alert Rules](screenshots/set%20alert%20rules.png) | ![Settings](screenshots/settings.png) |
+
+### Notifications
+![Notifications](screenshots/notifications.png)
+
+### AI Portfolio Analyst
+Natural language portfolio analysis powered by Groq/Llama AI.
+
+![AI Assistant](screenshots/ai_assistant.png)
+
+---
+
 ## Features
 
 - **User Authentication** — JWT-based auth with email OTP verification, password strength validation, and email alias normalization
@@ -154,25 +199,30 @@ The platform follows an event-driven microservices architecture with three indep
 2. **Kafka Streaming** — Live prices are published to `stock-price-updates` Kafka topic
 3. **Risk Calculation** — Kafka consumer triggers risk recalculation for affected portfolios
 4. **Storage** — Risk snapshots saved to PostgreSQL, current prices cached in Redis
-5. **Alert Evaluation** — Notification Service evaluates user-defined alert rules against current metrics
-6. **Alert Delivery** — Triggered alerts sent via RabbitMQ and stored as notifications
-7. **Dashboard** — Frontend fetches data every 30 seconds, displaying live charts and P/L
+5. **Market Hours Check** — After market close (4:00 PM ET), risk engine preserves last meaningful snapshot instead of overwriting with zeros
+6. **Alert Evaluation** — Notification Service evaluates user-defined alert rules against current metrics
+7. **Alert Delivery** — Triggered alerts sent via RabbitMQ and stored as notifications
+8. **Dashboard** — Frontend fetches data every 30 seconds, displaying live charts and P/L
 
 ---
 
 ## Project Status
 
-- [x] Project setup & Docker Compose (PostgreSQL, Redis, Kafka, Zookeeper, RabbitMQ)
+-  [x] Project setup & Docker Compose (PostgreSQL, Redis, Kafka, Zookeeper, RabbitMQ)
 - [x] Portfolio Service — JWT Authentication with email OTP verification
 - [x] Portfolio Service — Portfolio, Holdings & Transaction CRUD APIs
 - [x] Risk Engine — Finnhub API integration (real-time stock prices)
 - [x] Risk Engine — Apache Kafka producer/consumer (price streaming)
 - [x] Risk Engine — Risk calculation engine (Volatility, Sharpe, VaR, Beta)
 - [x] Risk Engine — Stock price history API
+- [x] Risk Engine — Market hours detection with risk metric persistence
+- [x] Risk Engine — Market status API endpoint
 - [x] Notification Service — RabbitMQ alert pipeline
 - [x] Notification Service — Custom alert rules with configurable thresholds
 - [x] React Frontend — Auth pages (Login, Register, Email Verification)
 - [x] React Frontend — Dashboard with charts, risk metrics, and live P/L
+- [x] React Frontend — Market open/closed status banner with live indicator
+- [x] React Frontend — Deduplicated chart timeline labels
 - [x] React Frontend — Portfolio management with real-time stock prices
 - [x] React Frontend — Notifications page with alert display
 - [x] React Frontend — Settings page with alert rule management
@@ -334,3 +384,7 @@ GROQ_API_KEY=your-groq-key
 ```
 
 ---
+
+## License
+
+This project is for educational and portfolio demonstration purposes.
