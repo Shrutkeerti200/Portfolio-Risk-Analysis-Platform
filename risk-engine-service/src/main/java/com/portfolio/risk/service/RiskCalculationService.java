@@ -2,8 +2,11 @@ package com.portfolio.risk.service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -49,6 +52,9 @@ public class RiskCalculationService {
     // VaR confidence level (95%)
     private static final double VAR_CONFIDENCE = 1.645;
 
+    // US Eastern timezone for market hours check
+    private static final ZoneId ET_ZONE = ZoneId.of("America/New_York");
+
     //Recalculate risk for all portfolio containing a specific stock
     @Transactional
     public void recalculateForStock(String symbol) {
@@ -67,6 +73,12 @@ public class RiskCalculationService {
     @Transactional
     public RiskSnapshot calculatePortfolioRisk(UUID portfolioId) {
         log.info("Calculating risk for portfolio: {}", portfolioId);
+
+        //If market is closed, return the last meaningful snapshot from DB or Redis
+        if (!isMarketOpen()) {
+            log.info("Market is closed. Returning last meaningful snapshot for portfolio: {}", portfolioId);
+            return getLastMeaningfulSnapshot(portfolioId);
+        }
 
         //Get holdings for this portfolio
         List<Object[]> holdings = getPortfolioHoldings(portfolioId);
@@ -125,13 +137,31 @@ public class RiskCalculationService {
         BigDecimal beta = calculateBeta(weights, stockReturns);
 
         if (!hasEnoughtData) {
-            volatility = calculatePortfolioVolatility(weights, stockReturns);
-            dailyReturn = calculatePortfolioDailyReturn(weights, stockReturns);
-            sharpeRatio = calculateSharpeRatio(dailyReturn, volatility);
-            valueAtRisk = calculateValueAtRisk(totalValue, dailyReturn, volatility);
-            beta = calculateBeta(weights, stockReturns);
-        } else {
             log.info("Not enough historical data yet for full risk calculation. Saving basic snapshot");
+        }
+
+        // If metrics are all zeros even during market hours, preserve last meaningful risk metrics, only update totalValue
+        if (isAllZeroMetrics(volatility, sharpeRatio, valueAtRisk, dailyReturn)) {
+            log.info("Calculated metrics are all zero for portfolio {}. Checking for last meaningful snapshot.", portfolioId);
+            RiskSnapshot lastGood = getLastMeaningfulSnapshot(portfolioId);
+            if (lastGood != null) {
+                RiskSnapshot preservedSnapshot = RiskSnapshot.builder()
+                        .portfolioId(portfolioId)
+                        .volatility(lastGood.getVolatility())
+                        .sharpeRatio(lastGood.getSharpeRatio())
+                        .valueAtRisk(lastGood.getValueAtRisk())
+                        .portfolioBeta(lastGood.getPortfolioBeta())
+                        .totalValue(totalValue) // Update only total value
+                        .dailyReturn(lastGood.getDailyReturn())
+                        .calculatedAt(LocalDateTime.now())
+                        .build();
+
+                RiskSnapshot saved = riskSnapshotRepository.save(preservedSnapshot);
+                cacheRiskMetrics(portfolioId, saved);
+
+                log.info("Preserved last meaningful metrics for portfolio {}: volatility={}, sharpe={}, var={}, beta={}, value={}", portfolioId, preservedSnapshot.getVolatility(), preservedSnapshot.getSharpeRatio(), preservedSnapshot.getValueAtRisk(), preservedSnapshot.getPortfolioBeta(), preservedSnapshot.getTotalValue());
+                return saved;
+            }
         }
 
         // Save risk snapshot
@@ -153,6 +183,68 @@ public class RiskCalculationService {
 
         log.info("Risk calculated for portfolio {}: volatility={}, sharpe={}, var={}, beta={}, value={}", portfolioId, volatility, sharpeRatio, valueAtRisk, beta, totalValue);
         return saved;
+    }
+
+    // MARKET HOURS AND SNAPSHOT HELPERS
+    private boolean isMarketOpen() {
+        ZonedDateTime nowET = ZonedDateTime.now(ET_ZONE);
+        DayOfWeek day = nowET.getDayOfWeek();
+
+        // weekend check
+        if (day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY) {
+            return false;
+        }
+
+        int hour = nowET.getHour();
+        int minute = nowET.getMinute();
+        int timeAsMinutes = hour * 60 + minute;
+
+        return timeAsMinutes >= 570 && timeAsMinutes < 960; // 9:30 AM to 4:00 PM ET
+    }
+
+    /**
+     * Retrieves the last snapshot where risk metrics are NOT all zeros.
+     * This is the "last meaningful" snapshot from when the market was open
+     * and we had actual price movement to calculate from.
+     */
+    private RiskSnapshot getLastMeaningfulSnapshot(UUID portfolioId) {
+        try {
+            Query query = entityManager.createNativeQuery(
+                "SELECT * FROM risk_snapshots " +
+                "WHERE portfolio_id = :portfolioId " +
+                "  AND (volatility != 0 OR sharpe_ratio != 0 OR value_at_risk != 0 OR daily_return != 0) " +
+                "ORDER BY calculated_at DESC " +
+                "LIMIT 1",
+                RiskSnapshot.class
+            );
+            query.setParameter("portfolioId", portfolioId);
+
+            @SuppressWarnings("unchecked")
+            List<RiskSnapshot> results = query.getResultList();
+            if (!results.isEmpty()) {
+                RiskSnapshot snapshot = results.get(0);
+                log.info("Found last meaningful snapshot for portfolio {} from {}",
+                        portfolioId, snapshot.getCalculatedAt());
+                return snapshot;
+            }
+        } catch (Exception e) {
+            log.error("Error fetching last meaningful snapshot for portfolio {}: {}", portfolioId, e.getMessage());
+        }
+
+        log.warn("No meaningful snapshot found for portfolio: {}", portfolioId);
+        return null;
+    }
+
+    /**
+     * Checks if all calculated risk metrics are zero.
+     * Typically means the market is closed or not enough price variation yet.
+     */
+    private boolean isAllZeroMetrics(BigDecimal volatility, BigDecimal sharpeRatio,
+                                      BigDecimal valueAtRisk, BigDecimal dailyReturn) {
+        return volatility.compareTo(BigDecimal.ZERO) == 0
+            && sharpeRatio.compareTo(BigDecimal.ZERO) == 0
+            && valueAtRisk.compareTo(BigDecimal.ZERO) == 0
+            && dailyReturn.compareTo(BigDecimal.ZERO) == 0;
     }
 
     // CALCULATION METHODS

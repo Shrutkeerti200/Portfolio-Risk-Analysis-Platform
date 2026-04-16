@@ -2,6 +2,8 @@ package com.portfolio.risk.client;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -33,10 +35,10 @@ public class FinnhubClient {
         try {
             FinnhubQuoteResponse response = webClient.get()
                     .uri(uriBuilder -> uriBuilder
-                    .path("/quote")
-                    .queryParam("symbol", symbol)
-                    .queryParam("token", apiKey)
-                    .build())
+                        .path("/quote")
+                        .queryParam("symbol", symbol)
+                        .queryParam("token", apiKey)
+                        .build())
                     .retrieve()
                     .bodyToMono(FinnhubQuoteResponse.class)
                     .block();
@@ -71,6 +73,61 @@ public class FinnhubClient {
         }
     }
 
+    /**
+     * Fetches historical candle data from Finnhub.
+     *
+     * @param symbol     Stock symbol (e.g., "AAPL")
+     * @param resolution Candle resolution: 1, 5, 15, 30, 60, D, W, M
+     * @param from       Unix timestamp for start
+     * @param to         Unix timestamp for end
+     * @return List of CandleData points, or empty list on error
+     */
+    public List<CandleData> getCandles(String symbol, String resolution, long from, long to) {
+        try {
+            FinnhubCandleResponse response = webClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/stock/candle")
+                            .queryParam("symbol", symbol)
+                            .queryParam("resolution", resolution)
+                            .queryParam("from", from)
+                            .queryParam("to", to)
+                            .queryParam("token", apiKey)
+                            .build())
+                    .retrieve()
+                    .bodyToMono(FinnhubCandleResponse.class)
+                    .block();
+
+            if (response == null || !"ok".equals(response.getStatus())
+                    || response.getClose() == null || response.getClose().isEmpty()) {
+                log.warn("No candle data returned for symbol: {} (resolution={}, from={}, to={})",
+                        symbol, resolution, from, to);
+                return List.of();
+            }
+
+            List<CandleData> candles = new ArrayList<>();
+            for (int i = 0; i < response.getClose().size(); i++) {
+                candles.add(CandleData.builder()
+                        .symbol(symbol)
+                        .open(response.getOpen().get(i))
+                        .high(response.getHigh().get(i))
+                        .low(response.getLow().get(i))
+                        .close(response.getClose().get(i))
+                        .volume(response.getVolume().get(i))
+                        .timestamp(response.getTimestamp().get(i))
+                        .build());
+            }
+
+            log.info("Fetched {} candles for {} (resolution={})", candles.size(), symbol, resolution);
+            return candles;
+
+        } catch (Exception e) {
+            log.error("Error fetching candles for {}: {}", symbol, e.getMessage());
+            return List.of();
+        }
+    }
+
+
+    // --- Response DTOs ---
     @Data
     public static class FinnhubQuoteResponse {
 
@@ -103,6 +160,24 @@ public class FinnhubClient {
     }
 
     @Data
+    public static class FinnhubCandleResponse {
+        @JsonProperty("s")
+        private String status; // "ok" or "no_data"
+        @JsonProperty("o")
+        private List<BigDecimal> open;
+        @JsonProperty("h")
+        private List<BigDecimal> high;
+        @JsonProperty("l")
+        private List<BigDecimal> low;
+        @JsonProperty("c")
+        private List<BigDecimal> close;
+        @JsonProperty("v")
+        private List<Long> volume;
+        @JsonProperty("t")
+        private List<Long> timestamp;
+    }
+
+    @Data
     @lombok.Builder
     public static class StockQuote {
 
@@ -114,5 +189,17 @@ public class FinnhubClient {
         private BigDecimal low;
         private BigDecimal open;
         private Long volume;
+    }
+
+    @Data
+    @lombok.Builder
+    public static class CandleData {
+        private String symbol;
+        private BigDecimal open;
+        private BigDecimal high;
+        private BigDecimal low;
+        private BigDecimal close;
+        private Long volume;
+        private Long timestamp;
     }
 }

@@ -26,12 +26,30 @@ export default function DashboardPage() {
     const [priceHistory, setPriceHistory] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [marketStatus, setMarketStatus] = useState(null);
 
     useEffect(() => {
         fetchDashboardData();
+        fetchMarketStatus();
         const interval = setInterval(fetchLiveData, 30000);
-        return () => clearInterval(interval);
+        const marketInterval = setInterval(fetchMarketStatus, 60000); // check every minute
+        return () => {
+            clearInterval(interval);
+            clearInterval(marketInterval);
+        };
     }, []);
+
+    const fetchMarketStatus = async () => {
+        try {
+            const response = await fetch('http://localhost:8082/api/risk/market-status');
+            if (response.ok) {
+                const data = await response.json();
+                setMarketStatus(data);
+            }
+        } catch (err) {
+            console.error('Failed to fetch market status:', err);
+        }
+    };
 
     const fetchDashboardData = async () => {
         try {
@@ -49,7 +67,6 @@ export default function DashboardPage() {
             const risks = await riskService.getRiskForAllPortfolios(ids);
             setRiskData(risks);
 
-            // Fetch current prices
             const symbols = [...new Set(merged.map(h => h.stockSymbol))];
             if (symbols.length > 0) {
                 const priceData = await riskService.getStockPrices(symbols);
@@ -85,7 +102,6 @@ export default function DashboardPage() {
                 const response = await fetch(`http://localhost:8082/api/risk/prices/${symbol}/history?limit=2000`);
                 if (response.ok) {
                     const data = await response.json();
-                    // Sample every Nth point to keep chart clean (aim for ~60 points)
                     const step = Math.max(1, Math.floor(data.length / 60));
                     historyData[symbol] = data.filter((_, i) => i % step === 0 || i === data.length - 1);
                 }
@@ -93,26 +109,35 @@ export default function DashboardPage() {
 
             const maxLen = Math.max(...Object.values(historyData).map(h => h.length));
             const chartData = [];
+            const seenDates = new Set();
+            const uniqueTicks = [];
+
             for (let i = 0; i < maxLen; i++) {
                 const point = { index: i };
                 for (const symbol of symbols) {
                     const arr = historyData[symbol];
                     if (arr && arr[i]) {
                         point[symbol] = arr[i].price;
-                        if (!point.time) {
+                        if (!point.dateKey) {
                             const date = new Date(arr[i].fetchedAt);
-                            const now = new Date();
-                            const diffHours = (now - date) / (1000 * 60 * 60);
-                            if (diffHours > 24) {
-                                point.time = date.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                            } else {
-                                point.time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            point.dateKey = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                            point.fullTime = date.toLocaleString('en-US', {
+                                month: 'short', day: 'numeric',
+                                hour: 'numeric', minute: '2-digit', hour12: true
+                            });
+
+                            if (!seenDates.has(point.dateKey)) {
+                                seenDates.add(point.dateKey);
+                                uniqueTicks.push(i);
                             }
                         }
                     }
                 }
                 chartData.push(point);
             }
+
+            // Attach unique tick indices to the array
+            chartData._uniqueTicks = uniqueTicks;
             setPriceHistory(chartData);
         } catch { }
     };
@@ -195,6 +220,21 @@ export default function DashboardPage() {
         );
     }
 
+    // Get the latest calculatedAt timestamp from risk data for "as of" display
+    const latestCalculatedAt = Object.values(riskData)
+        .filter(r => r?.calculatedAt)
+        .map(r => new Date(r.calculatedAt))
+        .sort((a, b) => b - a)[0];
+
+    const formatCalculatedAt = (date) => {
+        if (!date) return '';
+        return date.toLocaleString('en-US', {
+            month: 'short', day: 'numeric',
+            hour: 'numeric', minute: '2-digit',
+            hour12: true, timeZoneName: 'short'
+        });
+    };
+
     return (
         <div>
             <div className="mb-8">
@@ -204,6 +244,47 @@ export default function DashboardPage() {
 
             {error && (
                 <div className="bg-red-500/10 border border-red-500 text-red-400 px-4 py-3 rounded-lg mb-6 text-sm">{error}</div>
+            )}
+
+            {/* Market Status Banner */}
+            {marketStatus && !marketStatus.isOpen && (
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-4 py-3 mb-6 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                            <span className="relative flex h-2.5 w-2.5">
+                                <span className="absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-yellow-500"></span>
+                            </span>
+                            <span className="text-yellow-400 font-medium text-sm">Market Closed</span>
+                        </div>
+                        <span className="text-yellow-200/70 text-sm">
+                            {latestCalculatedAt
+                                ? `Showing data as of ${formatCalculatedAt(latestCalculatedAt)}`
+                                : 'Showing last available data'}
+                        </span>
+                    </div>
+                    <span className="text-yellow-200/50 text-xs">
+                        Opens {marketStatus.opensAt}
+                    </span>
+                </div>
+            )}
+
+            {marketStatus && marketStatus.isOpen && (
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg px-4 py-3 mb-6 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                            <span className="relative flex h-2.5 w-2.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                            </span>
+                            <span className="text-green-400 font-medium text-sm">Market Open</span>
+                        </div>
+                        <span className="text-green-200/70 text-sm">Live data — updating every 30s</span>
+                    </div>
+                    <span className="text-green-200/50 text-xs">
+                        Closes {marketStatus.closesAt}
+                    </span>
+                </div>
             )}
 
             {/* Summary Cards */}
@@ -284,15 +365,25 @@ export default function DashboardPage() {
             {priceHistory.length > 1 && (
                 <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-8">
                     <h2 className="text-lg font-semibold text-white mb-1">Stock Price Movement</h2>
-                    <p className="text-gray-500 text-sm mb-4">Live price tracking for all holdings</p>
+                    <p className="text-gray-500 text-sm mb-4">
+                        {marketStatus && !marketStatus.isOpen
+                            ? 'Showing last recorded prices before market close'
+                            : 'Live price tracking for all holdings'}
+                    </p>
                     <ResponsiveContainer width="100%" height={300}>
                         <LineChart data={priceHistory}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                            <XAxis dataKey="time" tick={{ fill: '#9ca3af', fontSize: 10 }} interval="preserveStartEnd" />
+                            <XAxis
+                                dataKey="index"
+                                tick={{ fill: '#9ca3af', fontSize: 10 }}
+                                ticks={priceHistory._uniqueTicks || []}
+                                tickFormatter={(idx) => priceHistory[idx]?.dateKey || ''}
+                            />
                             <YAxis tick={{ fill: '#9ca3af', fontSize: 11 }} tickFormatter={(v) => `$${v}`} domain={['auto', 'auto']} />
                             <Tooltip
                                 contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px' }}
                                 itemStyle={{ fontSize: '12px' }}
+                                labelFormatter={(label, payload) => payload?.[0]?.payload?.fullTime || label}
                                 formatter={(value, name) => [fmt(value), name]}
                             />
                             <Legend wrapperStyle={{ fontSize: '12px', color: '#9ca3af' }} />
@@ -309,6 +400,9 @@ export default function DashboardPage() {
                             ))}
                         </LineChart>
                     </ResponsiveContainer>
+                    <p className="text-gray-600 text-xs mt-3 text-center italic">
+                        Chart shows price data collected during active sessions. Gaps may appear for days when the service was offline.
+                    </p>
                 </div>
             )}
 
