@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import portfolioService from '../services/portfolioService';
@@ -9,8 +8,9 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
     LineChart, Line, Area, AreaChart,
 } from 'recharts';
-import { BriefcaseIcon, CurrencyDollarIcon, ChartBarIcon, ScaleIcon, BoltIcon, ArrowTrendingUpIcon, ChartPieIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { BriefcaseIcon, CurrencyDollarIcon, ChartBarIcon, ScaleIcon, BoltIcon, ArrowTrendingUpIcon, ChartPieIcon, ArrowPathIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import AiAssistant from '../components/dashboard/AiAssistant';
+import * as XLSX from 'xlsx';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
 const STOCK_COLORS = {
@@ -116,7 +116,6 @@ export default function DashboardPage() {
             const days = rangeMap[range] || 30;
             const from = now - days * 86400;
 
-            // Fetch candle data from Yahoo Finance via backend
             const historyData = {};
             for (const symbol of symbols) {
                 try {
@@ -134,7 +133,6 @@ export default function DashboardPage() {
                 }
             }
 
-            // Fallback to DB history if Yahoo returned nothing
             if (Object.keys(historyData).length === 0) {
                 for (const symbol of symbols) {
                     try {
@@ -159,7 +157,6 @@ export default function DashboardPage() {
                 return;
             }
 
-            // Collect all unique timestamps and sort
             const allTimestamps = new Set();
             for (const candles of Object.values(historyData)) {
                 for (const c of candles) {
@@ -168,7 +165,6 @@ export default function DashboardPage() {
             }
             const sortedTimestamps = [...allTimestamps].sort((a, b) => a - b);
 
-            // Build lookup: symbol → { timestamp → close price }
             const priceLookup = {};
             for (const [symbol, candles] of Object.entries(historyData)) {
                 priceLookup[symbol] = {};
@@ -177,7 +173,6 @@ export default function DashboardPage() {
                 }
             }
 
-            // Forward-fill prices and build chart data
             const lastKnown = {};
             const seenDates = new Set();
             const uniqueTicks = [];
@@ -210,11 +205,9 @@ export default function DashboardPage() {
                 return point;
             });
 
-            // Sample to ~100 points max for performance
             const step = Math.max(1, Math.floor(chartData.length / 100));
             const sampled = chartData.filter((_, i) => i % step === 0 || i === chartData.length - 1);
 
-            // Rebuild unique ticks for sampled data
             const sampledSeenDates = new Set();
             const sampledTicks = [];
             sampled.forEach((point, i) => {
@@ -319,6 +312,101 @@ export default function DashboardPage() {
         return context;
     };
 
+    const exportToExcel = async () => {
+        const wb = XLSX.utils.book_new();
+
+        // Sheet 1: Portfolio Summary
+        const summaryData = portfolios.map(p => {
+            const risk = riskData[p.id];
+            const holdings = p.holdings || [];
+            const invested = holdings.reduce((sum, h) => sum + (h.quantity * h.avgBuyPrice), 0);
+            const currentVal = risk?.totalValue || invested;
+            const pl = currentVal - invested;
+            return {
+                'Portfolio': p.name,
+                'Description': p.description || '',
+                'Holdings Count': holdings.length,
+                'Total Invested ($)': parseFloat(invested.toFixed(2)),
+                'Current Value ($)': parseFloat(currentVal.toFixed(2)),
+                'P/L ($)': parseFloat(pl.toFixed(2)),
+                'P/L (%)': invested > 0 ? parseFloat(((pl / invested) * 100).toFixed(2)) : 0,
+                'Volatility (%)': risk ? parseFloat((risk.volatility * 100).toFixed(2)) : 0,
+                'Sharpe Ratio': risk ? parseFloat(risk.sharpeRatio.toFixed(2)) : 0,
+                'VaR ($)': risk ? parseFloat(risk.valueAtRisk.toFixed(2)) : 0,
+                'Beta': risk ? parseFloat(risk.portfolioBeta.toFixed(2)) : 0,
+            };
+        });
+        const ws1 = XLSX.utils.json_to_sheet(summaryData);
+        ws1['!cols'] = summaryData.length > 0 ? Object.keys(summaryData[0]).map(() => ({ wch: 18 })) : [];
+        XLSX.utils.book_append_sheet(wb, ws1, 'Portfolio Summary');
+
+        // Sheet 2: All Holdings
+        const holdingsData = topHoldings.map(h => ({
+            'Symbol': h.stockSymbol,
+            'Portfolio': h.portfolioName,
+            'Quantity': h.quantity,
+            'Avg Cost ($)': parseFloat(h.avgBuyPrice.toFixed(2)),
+            'Current Price ($)': parseFloat(h.currentPrice.toFixed(2)),
+            'Invested ($)': parseFloat(h.invested.toFixed(2)),
+            'Current Value ($)': parseFloat(h.currentValue.toFixed(2)),
+            'P/L ($)': parseFloat(h.pl.toFixed(2)),
+            'P/L (%)': parseFloat(h.plPercent.toFixed(2)),
+        }));
+        const ws2 = XLSX.utils.json_to_sheet(holdingsData);
+        ws2['!cols'] = holdingsData.length > 0 ? Object.keys(holdingsData[0]).map(() => ({ wch: 18 })) : [];
+        XLSX.utils.book_append_sheet(wb, ws2, 'All Holdings');
+
+        // Sheet 3: Transactions
+        try {
+            const allTransactions = [];
+            for (const p of portfolios) {
+                const response = await fetch(`http://localhost:8081/api/portfolios/${p.id}/transactions`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                });
+                if (response.ok) {
+                    const txns = await response.json();
+                    txns.forEach(tx => {
+                        allTransactions.push({
+                            'Date': new Date(tx.executedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+                            'Portfolio': p.name,
+                            'Symbol': tx.stockSymbol,
+                            'Type': tx.type,
+                            'Quantity': parseFloat(tx.quantity),
+                            'Price ($)': parseFloat(tx.pricePerUnit),
+                            'Total ($)': parseFloat(tx.totalAmount),
+                        });
+                    });
+                }
+            }
+            if (allTransactions.length > 0) {
+                const ws3 = XLSX.utils.json_to_sheet(allTransactions);
+                ws3['!cols'] = Object.keys(allTransactions[0]).map(() => ({ wch: 16 }));
+                XLSX.utils.book_append_sheet(wb, ws3, 'Transactions');
+            }
+        } catch (err) {
+            console.error('Error fetching transactions for export:', err);
+        }
+
+        // Sheet 4: Risk Snapshot
+        const riskMetrics = [{
+            'Date': new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+            'Total Invested ($)': parseFloat(totalInvested.toFixed(2)),
+            'Total Current Value ($)': parseFloat(totalCurrentValue.toFixed(2)),
+            'Total P/L ($)': parseFloat(totalPL.toFixed(2)),
+            'Total P/L (%)': parseFloat(totalPLPercent.toFixed(2)),
+            'Avg Volatility (%)': parseFloat((avgVolatility * 100).toFixed(2)),
+            'Avg Sharpe Ratio': parseFloat(avgSharpe.toFixed(2)),
+            'Total VaR ($)': parseFloat(totalVaR.toFixed(2)),
+            'Avg Beta': parseFloat(avgBeta.toFixed(2)),
+        }];
+        const ws4 = XLSX.utils.json_to_sheet(riskMetrics);
+        ws4['!cols'] = Object.keys(riskMetrics[0]).map(() => ({ wch: 22 }));
+        XLSX.utils.book_append_sheet(wb, ws4, 'Risk Snapshot');
+
+        const date = new Date().toISOString().split('T')[0];
+        XLSX.writeFile(wb, `Riskient_Portfolio_Report_${date}.xlsx`);
+    };
+
     if (totalPortfolios === 0) {
         return (
             <div className="text-center py-20 bg-gray-800 rounded-xl border border-gray-700">
@@ -346,9 +434,18 @@ export default function DashboardPage() {
 
     return (
         <div>
-            <div className="mb-8">
-                <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-                <p className="text-gray-400 mt-1">Welcome back, {user?.firstName}. Here's your portfolio overview.</p>
+            <div className="flex items-center justify-between mb-8">
+                <div>
+                    <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+                    <p className="text-gray-400 mt-1">Welcome back, {user?.firstName}. Here's your portfolio overview.</p>
+                </div>
+                <button
+                    onClick={exportToExcel}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition text-sm"
+                >
+                    <ArrowDownTrayIcon className="h-4 w-4" />
+                    Export to Excel
+                </button>
             </div>
 
             {error && (
