@@ -38,8 +38,8 @@ export default function RegisterPage() {
             newErrors.firstName = 'First name must be at least 2 characters';
         }
 
-        if (formData.lastName.trim().length < 2) {
-            newErrors.lastName = 'Last name must be at least 2 characters';
+        if (formData.lastName.trim().length >= 1) {
+            newErrors.lastName = 'Last name must be at least 1 character';
         }
 
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -91,7 +91,7 @@ export default function RegisterPage() {
     const isFormValid = () => {
         return (
             formData.firstName.trim().length >= 2 &&
-            formData.lastName.trim().length >= 2 &&
+            formData.lastName.trim().length >= 1 &&
             /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email) &&
             formData.password.length >= 10 &&
             /[A-Z]/.test(formData.password) &&

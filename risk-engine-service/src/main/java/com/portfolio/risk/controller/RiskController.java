@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.portfolio.risk.client.FinnhubClient;
+import com.portfolio.risk.client.YahooFinanceClient;
 import com.portfolio.risk.model.RiskSnapshot;
 import com.portfolio.risk.model.StockPrice;
 import com.portfolio.risk.repository.RiskSnapshotRepository;
@@ -35,6 +36,7 @@ public class RiskController {
     private final RiskSnapshotRepository riskSnapshotRepository;
     private final StockPriceRepository stockPriceRepository;
     private final FinnhubClient finnhubClient;
+    private final YahooFinanceClient yahooFinanceClient;
 
     private static final ZoneId ET_ZONE = ZoneId.of("America/New_York");
 
@@ -94,8 +96,7 @@ public class RiskController {
     }
 
     /**
-     * Returns current market status — whether NYSE/NASDAQ is open or closed,
-     * along with the current Eastern Time and next open/close time.
+     * Returns current market status — whether NYSE/NASDAQ is open or closed.
      */
     @GetMapping("/market-status")
     public ResponseEntity<Map<String, Object>> getMarketStatus() {
@@ -107,12 +108,10 @@ public class RiskController {
         status.put("currentTimeET", nowET.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z")));
 
         if (isOpen) {
-            // Market closes at 4:00 PM ET today
             ZonedDateTime closeTime = nowET.withHour(16).withMinute(0).withSecond(0);
             status.put("message", "Market is open");
             status.put("closesAt", closeTime.format(DateTimeFormatter.ofPattern("h:mm a z")));
         } else {
-            // Calculate next market open
             ZonedDateTime nextOpen = getNextMarketOpen(nowET);
             status.put("message", "Market is closed");
             status.put("opensAt", nextOpen.format(DateTimeFormatter.ofPattern("EEE, MMM d 'at' h:mm a z")));
@@ -121,44 +120,12 @@ public class RiskController {
         return ResponseEntity.ok(status);
     }
 
-    private boolean isMarketOpen(ZonedDateTime nowET) {
-        DayOfWeek day = nowET.getDayOfWeek();
-        if (day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY) {
-            return false;
-        }
-        int timeAsMinutes = nowET.getHour() * 60 + nowET.getMinute();
-        return timeAsMinutes >= 570 && timeAsMinutes < 960; // 9:30 AM - 4:00 PM
-    }
-
-    private ZonedDateTime getNextMarketOpen(ZonedDateTime nowET) {
-        ZonedDateTime next = nowET;
-
-        // If it's before 9:30 AM on a weekday, market opens today
-        if (next.getDayOfWeek() != DayOfWeek.SATURDAY
-                && next.getDayOfWeek() != DayOfWeek.SUNDAY
-                && (next.getHour() * 60 + next.getMinute()) < 570) {
-            return next.withHour(9).withMinute(30).withSecond(0);
-        }
-
-        // Otherwise, move to next day and find the next weekday
-        next = next.plusDays(1);
-        while (next.getDayOfWeek() == DayOfWeek.SATURDAY || next.getDayOfWeek() == DayOfWeek.SUNDAY) {
-            next = next.plusDays(1);
-        }
-        return next.withHour(9).withMinute(30).withSecond(0);
-    }
-
     /**
-     * Fetches historical candle data from Finnhub.
+     * Fetches historical candle data from Yahoo Finance (free, no API key needed).
      * Resolution auto-selected based on date range:
-     *   <= 3 days  → 60 (hourly)
-     *   <= 30 days → D (daily)
-     *   > 30 days  → W (weekly)
-     * 
-     * @param symbol Stock symbol
-     * @param from   Unix timestamp start (seconds)
-     * @param to     Unix timestamp end (seconds)
-     * @param resolution Optional override: 1, 5, 15, 30, 60, D, W, M
+     *   <= 7 days  → 1h (hourly)
+     *   <= 90 days → 1d (daily)
+     *   > 90 days  → 1wk (weekly)
      */
     @GetMapping("/prices/{symbol}/candles")
     public ResponseEntity<?> getCandleData(
@@ -167,21 +134,22 @@ public class RiskController {
             @RequestParam long to,
             @RequestParam(required = false) String resolution) {
 
-        // Auto-select resolution if not provided
-        if (resolution == null || resolution.isEmpty()) {
-            long diffSeconds = to - from;
-            long diffDays = diffSeconds / 86400;
-            if (diffDays <= 3) {
-                resolution = "60";     // hourly for short ranges
-            } else if (diffDays <= 30) {
-                resolution = "D";      // daily for medium ranges
+        String interval;
+        if (resolution != null && !resolution.isEmpty()) {
+            interval = resolution;
+        } else {
+            long diffDays = (to - from) / 86400;
+            if (diffDays <= 7) {
+                interval = "1h";
+            } else if (diffDays <= 90) {
+                interval = "1d";
             } else {
-                resolution = "W";      // weekly for long ranges
+                interval = "1wk";
             }
         }
 
-        List<FinnhubClient.CandleData> candles = finnhubClient.getCandles(
-                symbol.toUpperCase(), resolution, from, to);
+        List<YahooFinanceClient.CandleData> candles = yahooFinanceClient.getCandles(
+                symbol.toUpperCase(), interval, from, to);
 
         if (candles.isEmpty()) {
             Map<String, String> error = new HashMap<>();
@@ -192,7 +160,7 @@ public class RiskController {
 
         Map<String, Object> result = new HashMap<>();
         result.put("symbol", symbol.toUpperCase());
-        result.put("resolution", resolution);
+        result.put("resolution", interval);
         result.put("count", candles.size());
         result.put("candles", candles);
         return ResponseEntity.ok(result);
@@ -204,5 +172,32 @@ public class RiskController {
         status.put("service", "risk-engine");
         status.put("status", "UP");
         return ResponseEntity.ok(status);
+    }
+
+    // ── Private helpers ──
+
+    private boolean isMarketOpen(ZonedDateTime nowET) {
+        DayOfWeek day = nowET.getDayOfWeek();
+        if (day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY) {
+            return false;
+        }
+        int timeAsMinutes = nowET.getHour() * 60 + nowET.getMinute();
+        return timeAsMinutes >= 570 && timeAsMinutes < 960;
+    }
+
+    private ZonedDateTime getNextMarketOpen(ZonedDateTime nowET) {
+        ZonedDateTime next = nowET;
+
+        if (next.getDayOfWeek() != DayOfWeek.SATURDAY
+                && next.getDayOfWeek() != DayOfWeek.SUNDAY
+                && (next.getHour() * 60 + next.getMinute()) < 570) {
+            return next.withHour(9).withMinute(30).withSecond(0);
+        }
+
+        next = next.plusDays(1);
+        while (next.getDayOfWeek() == DayOfWeek.SATURDAY || next.getDayOfWeek() == DayOfWeek.SUNDAY) {
+            next = next.plusDays(1);
+        }
+        return next.withHour(9).withMinute(30).withSecond(0);
     }
 }
