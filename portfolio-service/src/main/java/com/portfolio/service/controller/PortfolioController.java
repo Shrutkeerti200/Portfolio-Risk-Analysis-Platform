@@ -21,6 +21,7 @@ import com.portfolio.service.dto.HoldingRequest;
 import com.portfolio.service.dto.HoldingResponse;
 import com.portfolio.service.dto.PortfolioRequest;
 import com.portfolio.service.dto.PortfolioResponse;
+import com.portfolio.service.dto.TransactionRequest;
 import com.portfolio.service.dto.TransactionResponse;
 import com.portfolio.service.service.PortfolioManagementService;
 
@@ -123,6 +124,39 @@ public class PortfolioController {
     }
 
     // -------------------- TRANSACTION ENDPOINTS ------------------- //
+    /**
+     * Add a BUY or SELL transaction to an existing holding.
+     * Recalculates avg cost basis for buys, validates quantity for sells.
+     */
+    @PostMapping("/holdings/{holdingId}/transactions")
+    public ResponseEntity<?> addTransaction(
+            @PathVariable UUID holdingId,
+            @Valid @RequestBody TransactionRequest request,
+            Authentication auth) {
+        try {
+            HoldingResponse holding = portfolioService.addTransaction(auth.getName(), holdingId, request);
+            return ResponseEntity.ok(holding);
+        } catch (RuntimeException e) {
+            return errorResponse(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
+    }
+
+    /**
+     * Get all transactions for a specific holding.
+     */
+    @GetMapping("/holdings/{holdingId}/transactions")
+    public ResponseEntity<?> getHoldingTransactions(@PathVariable UUID holdingId, Authentication auth) {
+        try {
+            List<TransactionResponse> transactions = portfolioService.getHoldingTransactions(auth.getName(), holdingId);
+            return ResponseEntity.ok(transactions);
+        } catch (RuntimeException e) {
+            return errorResponse(HttpStatus.NOT_FOUND, e.getMessage());
+        }
+    }
+
+    /**
+     * Get all transactions across all holdings in a portfolio.
+     */
     @GetMapping("/{portfolioId}/transactions")
     public ResponseEntity<?> getTransactions(@PathVariable UUID portfolioId, Authentication auth) {
         try {

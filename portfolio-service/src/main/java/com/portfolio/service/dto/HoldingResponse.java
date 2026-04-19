@@ -25,6 +25,10 @@ public class HoldingResponse {
 
     private BigDecimal totalInvested;
 
+    private BigDecimal realizedPL;  // P/L from sold shares
+    
+    private int transactionCount;   // number of buy/sell transactions
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

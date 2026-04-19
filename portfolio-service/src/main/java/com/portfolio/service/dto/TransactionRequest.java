@@ -13,18 +13,18 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class HoldingRequest {
+public class TransactionRequest {
 
-    @NotBlank(message = "Stock symbol is required")
-    private String stockSymbol;
+    @NotBlank(message = "Transaction type is required")
+    private String type;
 
     @NotNull(message = "Quantity is required")
     @DecimalMin(value = "0.0001", message = "Quantity must be greater than zero")
     private BigDecimal quantity;
 
-    @NotNull(message = "Buy price is required")
-    @DecimalMin(value = "0.0001", message = "Buy price must be greater than zero")
-    private BigDecimal buyPrice;
+    @NotNull(message = "Price per unit is required")
+    @DecimalMin(value = "0.0001", message = "Price per unit must be greater than zero")
+    private BigDecimal pricePerUnit;
 
-    private LocalDateTime purchaseDate;
+    private LocalDateTime executedAt;
 }

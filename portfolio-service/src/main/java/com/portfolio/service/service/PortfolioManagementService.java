@@ -13,6 +13,7 @@ import com.portfolio.service.dto.HoldingRequest;
 import com.portfolio.service.dto.HoldingResponse;
 import com.portfolio.service.dto.PortfolioRequest;
 import com.portfolio.service.dto.PortfolioResponse;
+import com.portfolio.service.dto.TransactionRequest;
 import com.portfolio.service.dto.TransactionResponse;
 import com.portfolio.service.model.Holding;
 import com.portfolio.service.model.Portfolio;
@@ -121,11 +122,18 @@ public class PortfolioManagementService {
 
         String symbol = request.getStockSymbol().toUpperCase();
 
-        // Check if holding already exists
-        if (holdingRepository.existsByPortfolioIdAndStockSymbol(portfolioId, symbol)) {
-            throw new RuntimeException("Holding for " + symbol + " already exists in the portfolio");
+        // Check if holding already exists — if so, treat as a BUY transaction
+        var existingHolding = holdingRepository.findByPortfolioIdAndStockSymbol(portfolioId, symbol);
+        if (existingHolding.isPresent()) {
+            TransactionRequest txRequest = new TransactionRequest();
+            txRequest.setType("BUY");
+            txRequest.setQuantity(request.getQuantity());
+            txRequest.setPricePerUnit(request.getBuyPrice());
+            txRequest.setExecutedAt(request.getPurchaseDate() != null ? request.getPurchaseDate() : LocalDateTime.now());
+            return addTransaction(email, existingHolding.get().getId(), txRequest);
         }
 
+        // Create new holding
         Holding holding = Holding.builder()
                 .portfolio(portfolio)
                 .stockSymbol(symbol)
@@ -135,20 +143,21 @@ public class PortfolioManagementService {
 
         Holding saved = holdingRepository.save(holding);
 
-        //Record BUY transaction
+        // Record initial BUY transaction
+        LocalDateTime executedAt = request.getPurchaseDate() != null ? request.getPurchaseDate() : LocalDateTime.now();
+
         Transaction transaction = Transaction.builder()
                 .holding(saved)
                 .type(Transaction.TransactionType.BUY)
                 .quantity(request.getQuantity())
                 .pricePerUnit(request.getBuyPrice())
                 .totalAmount(request.getQuantity().multiply(request.getBuyPrice()))
-                .executedAt(LocalDateTime.now())
+                .executedAt(executedAt)
                 .build();
 
         transactionRepository.save(transaction);
 
         return toHoldingResponse(saved);
-
     }
 
     @Transactional
@@ -218,6 +227,111 @@ public class PortfolioManagementService {
         return transactions.stream().map(this::toTransactionResponse).collect(Collectors.toList());
     }
 
+    /**
+     * Adds a BUY or SELL transaction to an existing holding.
+     * Recalculates avg cost basis using weighted average for buys.
+     * Tracks realized P/L for sells.
+     */
+    @Transactional
+    public HoldingResponse addTransaction(String email, UUID holdingId, TransactionRequest request) {
+        Holding holding = holdingRepository.findById(holdingId)
+                .orElseThrow(() -> new RuntimeException("Holding not found"));
+
+        User user = findUserByEmail(email);
+        if (!holding.getPortfolio().getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Holding not found");
+        }
+
+        Transaction.TransactionType type = Transaction.TransactionType.valueOf(request.getType().toUpperCase());
+        BigDecimal txQuantity = request.getQuantity();
+        BigDecimal txPrice = request.getPricePerUnit();
+        LocalDateTime executedAt = request.getExecutedAt() != null ? request.getExecutedAt() : LocalDateTime.now();
+
+        if (type == Transaction.TransactionType.BUY) {
+            // Weighted average cost: (oldQty * oldAvg + newQty * newPrice) / (oldQty + newQty)
+            BigDecimal oldTotal = holding.getQuantity().multiply(holding.getAvgBuyPrice());
+            BigDecimal newTotal = txQuantity.multiply(txPrice);
+            BigDecimal combinedQuantity = holding.getQuantity().add(txQuantity);
+
+            BigDecimal newAvgPrice = oldTotal.add(newTotal)
+                    .divide(combinedQuantity, 4, BigDecimal.ROUND_HALF_UP);
+
+            holding.setQuantity(combinedQuantity);
+            holding.setAvgBuyPrice(newAvgPrice);
+
+        } else if (type == Transaction.TransactionType.SELL) {
+            // Validate enough shares to sell
+            if (txQuantity.compareTo(holding.getQuantity()) > 0) {
+                throw new RuntimeException(
+                    "Cannot sell " + txQuantity + " shares. You only hold " + holding.getQuantity() + " shares of " + holding.getStockSymbol()
+                );
+            }
+
+            BigDecimal remainingQuantity = holding.getQuantity().subtract(txQuantity);
+
+            // If selling all shares, remove the holding
+            if (remainingQuantity.compareTo(BigDecimal.ZERO) == 0) {
+                // Save the sell transaction first
+                Transaction transaction = Transaction.builder()
+                        .holding(holding)
+                        .type(type)
+                        .quantity(txQuantity)
+                        .pricePerUnit(txPrice)
+                        .totalAmount(txQuantity.multiply(txPrice))
+                        .executedAt(executedAt)
+                        .build();
+                transactionRepository.save(transaction);
+
+                holdingRepository.delete(holding);
+                return HoldingResponse.builder()
+                        .id(holding.getId())
+                        .stockSymbol(holding.getStockSymbol())
+                        .quantity(BigDecimal.ZERO)
+                        .avgBuyPrice(holding.getAvgBuyPrice())
+                        .totalInvested(BigDecimal.ZERO)
+                        .realizedPL(txQuantity.multiply(txPrice.subtract(holding.getAvgBuyPrice())))
+                        .transactionCount(holding.getTransactions().size() + 1)
+                        .build();
+            }
+
+            // Avg buy price stays the same when selling — only quantity changes
+            holding.setQuantity(remainingQuantity);
+        }
+
+        Holding saved = holdingRepository.save(holding);
+
+        // Record transaction
+        Transaction transaction = Transaction.builder()
+                .holding(saved)
+                .type(type)
+                .quantity(txQuantity)
+                .pricePerUnit(txPrice)
+                .totalAmount(txQuantity.multiply(txPrice))
+                .executedAt(executedAt)
+                .build();
+
+        transactionRepository.save(transaction);
+
+        return toHoldingResponse(saved);
+    }
+
+    /**
+     * Gets all transactions for a specific holding.
+     */
+    @Transactional(readOnly = true)
+    public List<TransactionResponse> getHoldingTransactions(String email, UUID holdingId) {
+        Holding holding = holdingRepository.findById(holdingId)
+                .orElseThrow(() -> new RuntimeException("Holding not found"));
+
+        User user = findUserByEmail(email);
+        if (!holding.getPortfolio().getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Holding not found");
+        }
+
+        List<Transaction> transactions = transactionRepository.findByHoldingIdOrderByExecutedAtDesc(holdingId);
+        return transactions.stream().map(this::toTransactionResponse).collect(Collectors.toList());
+    }
+
     // ---------------------Helper methods---------------------------// 
     private User findUserByEmail(String email) {
 
@@ -238,12 +352,30 @@ public class PortfolioManagementService {
     }
 
     private HoldingResponse toHoldingResponse(Holding holding) {
+        // Calculate realized P/L from all SELL transactions
+        BigDecimal realizedPL = BigDecimal.ZERO;
+        int txCount = 0;
+
+        if (holding.getTransactions() != null) {
+            txCount = holding.getTransactions().size();
+            for (Transaction tx : holding.getTransactions()) {
+                if (tx.getType() == Transaction.TransactionType.SELL) {
+                    // Realized P/L = (sell price - avg buy price) * quantity sold
+                    BigDecimal pl = tx.getPricePerUnit().subtract(holding.getAvgBuyPrice())
+                            .multiply(tx.getQuantity());
+                    realizedPL = realizedPL.add(pl);
+                }
+            }
+        }
+
         return HoldingResponse.builder()
                 .id(holding.getId())
                 .stockSymbol(holding.getStockSymbol())
                 .quantity(holding.getQuantity())
                 .avgBuyPrice(holding.getAvgBuyPrice())
                 .totalInvested(holding.getQuantity().multiply(holding.getAvgBuyPrice()))
+                .realizedPL(realizedPL)
+                .transactionCount(txCount)
                 .createdAt(holding.getCreatedAt())
                 .updatedAt(holding.getUpdatedAt())
                 .build();
