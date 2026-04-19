@@ -1,6 +1,7 @@
 package com.portfolio.notification.service;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,9 +27,11 @@ public class AlertEvaluatorService {
     private final NotificationRepository notificationRepository;
     private final EntityManager entityManager;
 
+    // Cooldown period — same alert won't fire again within this duration
+    private static final int COOLDOWN_MINUTES = 60;
+
     @Transactional
     public void evaluateAlertsForStock(String symbol) {
-        // Get portfolio IDs containing this stock
         List<UUID> portfolioIds = getPortfolioIdsForStock(symbol);
 
         for (UUID portfolioId : portfolioIds) {
@@ -62,6 +65,14 @@ public class AlertEvaluatorService {
         }
 
         if (triggered) {
+            // Check cooldown — skip if same alert fired within the last hour
+            String title = "Risk Alert: " + rule.getMetricType().name();
+            if (hasRecentNotification(rule.getUserId(), title, COOLDOWN_MINUTES)) {
+                log.debug("Skipping alert for rule {} — cooldown active (fired within last {} min)",
+                        rule.getId(), COOLDOWN_MINUTES);
+                return;
+            }
+
             String message = String.format(
                     "Alert: %s is %s (threshold: %s, current: %s)",
                     rule.getMetricType().name(),
@@ -74,7 +85,7 @@ public class AlertEvaluatorService {
 
             Notification notification = Notification.builder()
                     .userId(rule.getUserId())
-                    .title("Risk Alert: " + rule.getMetricType().name())
+                    .title(title)
                     .message(message)
                     .type(Notification.NotificationType.RISK_ALERT)
                     .isRead(false)
@@ -84,19 +95,38 @@ public class AlertEvaluatorService {
         }
     }
 
+    /**
+     * Checks if a notification with the same title was created for this user
+     * within the last N minutes. Prevents alert spam.
+     */
+    private boolean hasRecentNotification(UUID userId, String title, int minutes) {
+        try {
+            Query query = entityManager.createNativeQuery(
+                "SELECT COUNT(*) FROM notifications " +
+                "WHERE user_id = :userId " +
+                "  AND title = :title " +
+                "  AND created_at > :cutoff"
+            );
+            query.setParameter("userId", userId);
+            query.setParameter("title", title);
+            query.setParameter("cutoff", LocalDateTime.now().minusMinutes(minutes));
+
+            Long count = ((Number) query.getSingleResult()).longValue();
+            return count > 0;
+        } catch (Exception e) {
+            log.error("Error checking recent notifications: {}", e.getMessage());
+            return false;
+        }
+    }
+
     private BigDecimal getCurrentMetricValue(UUID portfolioId, AlertRule.MetricType metricType) {
         try {
             String column = switch (metricType) {
-                case VOLATILITY ->
-                    "volatility";
-                case SHARPE_RATIO ->
-                    "sharpe_ratio";
-                case VAR ->
-                    "value_at_risk";
-                case BETA ->
-                    "portfolio_beta";
-                case DAILY_RETURN ->
-                    "daily_return";
+                case VOLATILITY -> "volatility";
+                case SHARPE_RATIO -> "sharpe_ratio";
+                case VAR -> "value_at_risk";
+                case BETA -> "portfolio_beta";
+                case DAILY_RETURN -> "daily_return";
             };
 
             Query query = entityManager.createNativeQuery(
