@@ -11,7 +11,7 @@ This platform simulates a simplified version of the risk dashboards used by port
 ### Authentication
 | Sign In | Sign Up |
 |---------|---------|
-| ![Sign In](screenshots/sign in.png) | ![Sign Up](screenshots/sign up.png) |
+| ![Sign In](screenshots/sign_in.png) | ![Sign Up](screenshots/sign_up.png) |
 
 ### OTP Verification
 ![OTP Verification](screenshots/otp_verification.png)
@@ -59,7 +59,7 @@ Grouped alerts with AI-powered plain-English explanations of what happened, why 
 ### AI Portfolio Analyst
 Natural language portfolio analysis powered by Groq/Llama AI with suggested questions for diversification, risk, rebalancing, and more.
 
-![AI Assistant](screenshots/AI_Assistant.png)
+![AI Assistant](screenshots/AiAssistant.png)
 
 ---
 
