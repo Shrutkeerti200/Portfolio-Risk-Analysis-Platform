@@ -25,9 +25,11 @@ export default function AiAssistant({ portfolioContext }) {
 
     const suggestedQuestions = [
         "How diversified is my portfolio?",
-        "Which stock has the highest allocation?",
         "What are the risks in my portfolio?",
-        "Suggest improvements to my portfolio",
+        "How should I rebalance my portfolio?",
+        "Explain my Sharpe Ratio and VaR",
+        "Which holdings are dragging performance?",
+        "Am I too concentrated in any sector?",
     ];
 
     const handleSend = async (question) => {

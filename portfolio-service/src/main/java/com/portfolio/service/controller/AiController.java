@@ -24,6 +24,9 @@ public class AiController {
     private final AiService aiService;
     private final ObjectMapper objectMapper;
 
+    /**
+     * General portfolio analysis chat.
+     */
     @PostMapping("/chat")
     public ResponseEntity<Map<String, String>> chat(@RequestBody String body, Authentication auth) {
         Map<String, String> result = new HashMap<>();
@@ -50,6 +53,98 @@ public class AiController {
 
         } catch (Exception e) {
             result.put("response", "Error processing request: " + e.getMessage());
+            return ResponseEntity.badRequest().body(result);
+        }
+    }
+
+    /**
+     * Research a stock symbol — returns company overview, risks, and fit with current portfolio.
+     */
+    @PostMapping("/research")
+    public ResponseEntity<Map<String, String>> researchStock(@RequestBody String body, Authentication auth) {
+        Map<String, String> result = new HashMap<>();
+
+        if (auth == null) {
+            result.put("error", "Unauthorized");
+            return ResponseEntity.status(401).body(result);
+        }
+
+        try {
+            JsonNode json = objectMapper.readTree(body);
+            String symbol = json.has("symbol") ? json.get("symbol").asText() : null;
+            String portfolioContext = json.has("portfolioContext") ? json.get("portfolioContext").asText() : "";
+
+            if (symbol == null || symbol.isBlank()) {
+                result.put("response", "Please provide a stock symbol.");
+                return ResponseEntity.badRequest().body(result);
+            }
+
+            String response = aiService.researchStock(symbol.toUpperCase(), portfolioContext);
+            result.put("response", response);
+            result.put("symbol", symbol.toUpperCase());
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            result.put("response", "Error researching stock: " + e.getMessage());
+            return ResponseEntity.badRequest().body(result);
+        }
+    }
+
+    /**
+     * Generate a daily portfolio digest — performance summary, top movers, risk check.
+     */
+    @PostMapping("/digest")
+    public ResponseEntity<Map<String, String>> dailyDigest(@RequestBody String body, Authentication auth) {
+        Map<String, String> result = new HashMap<>();
+
+        if (auth == null) {
+            result.put("error", "Unauthorized");
+            return ResponseEntity.status(401).body(result);
+        }
+
+        try {
+            JsonNode json = objectMapper.readTree(body);
+            String portfolioContext = json.has("portfolioContext") ? json.get("portfolioContext").asText() : "";
+
+            if (portfolioContext.isBlank()) {
+                result.put("response", "No portfolio data available to generate a digest.");
+                return ResponseEntity.badRequest().body(result);
+            }
+
+            String response = aiService.generateDailyDigest(portfolioContext);
+            result.put("response", response);
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            result.put("response", "Error generating digest: " + e.getMessage());
+            return ResponseEntity.badRequest().body(result);
+        }
+    }
+
+    /**
+     * Summarize an alert in plain English with context.
+     */
+    @PostMapping("/summarize-alert")
+    public ResponseEntity<Map<String, String>> summarizeAlert(@RequestBody String body, Authentication auth) {
+        Map<String, String> result = new HashMap<>();
+
+        if (auth == null) {
+            result.put("error", "Unauthorized");
+            return ResponseEntity.status(401).body(result);
+        }
+
+        try {
+            JsonNode json = objectMapper.readTree(body);
+            String title = json.has("title") ? json.get("title").asText() : "";
+            String message = json.has("message") ? json.get("message").asText() : "";
+            String portfolioContext = json.has("portfolioContext") ? json.get("portfolioContext").asText() : "";
+
+            String response = aiService.summarizeAlert(title, message, portfolioContext);
+            result.put("response", response);
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            result.put("response", "Error summarizing alert: " + e.getMessage());
             return ResponseEntity.badRequest().body(result);
         }
     }

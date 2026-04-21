@@ -11,13 +11,8 @@ import {
 import { BriefcaseIcon, CurrencyDollarIcon, ChartBarIcon, ScaleIcon, BoltIcon, ArrowTrendingUpIcon, ChartPieIcon, ArrowPathIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import AiAssistant from '../components/dashboard/AiAssistant';
 import * as XLSX from 'xlsx';
+import { getStockColor, getPaletteColor } from '../utils/stockColors';
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
-const STOCK_COLORS = {
-    AAPL: '#3b82f6', GOOGL: '#10b981', TSLA: '#ef4444', NVDA: '#8b5cf6',
-    MSFT: '#06b6d4', JNJ: '#f59e0b', KO: '#ec4899', PG: '#f97316', META: '#6366f1',
-    IBM: '#6b7280',
-};
 
 export default function DashboardPage() {
     const { user } = useAuth();
@@ -31,6 +26,9 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [marketStatus, setMarketStatus] = useState(null);
+    const [digestLoading, setDigestLoading] = useState(false);
+    const [digestContent, setDigestContent] = useState(null);
+    const [showDigest, setShowDigest] = useState(false);
 
     useEffect(() => {
         fetchDashboardData();
@@ -407,6 +405,28 @@ export default function DashboardPage() {
         XLSX.writeFile(wb, `Riskient_Portfolio_Report_${date}.xlsx`);
     };
 
+    const generateDailyDigest = async () => {
+        setDigestLoading(true);
+        setShowDigest(true);
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch('http://localhost:8081/api/ai/digest', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: 'Bearer ' + token,
+                },
+                body: JSON.stringify({ portfolioContext: buildPortfolioContext() }),
+            });
+            const data = await response.json();
+            setDigestContent(data.response || 'Could not generate digest.');
+        } catch {
+            setDigestContent('Failed to generate daily digest. Please try again.');
+        } finally {
+            setDigestLoading(false);
+        }
+    };
+
     if (totalPortfolios === 0) {
         return (
             <div className="text-center py-20 bg-gray-800 rounded-xl border border-gray-700">
@@ -439,14 +459,52 @@ export default function DashboardPage() {
                     <h1 className="text-2xl font-bold text-white">Dashboard</h1>
                     <p className="text-gray-400 mt-1">Welcome back, {user?.firstName}. Here's your portfolio overview.</p>
                 </div>
-                <button
-                    onClick={exportToExcel}
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition text-sm"
-                >
-                    <ArrowDownTrayIcon className="h-4 w-4" />
-                    Export to Excel
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={generateDailyDigest}
+                        disabled={digestLoading}
+                        className="flex items-center gap-2 px-4 py-2 bg-purple-600/20 hover:bg-purple-600/40 text-purple-400 rounded-lg transition text-sm disabled:opacity-50"
+                    >
+                        <BoltIcon className="h-4 w-4" />
+                        {digestLoading ? 'Generating...' : 'AI Daily Digest'}
+                    </button>
+                    <button
+                        onClick={exportToExcel}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition text-sm"
+                    >
+                        <ArrowDownTrayIcon className="h-4 w-4" />
+                        Export to Excel
+                    </button>
+                </div>
             </div>
+
+            {/* AI Daily Digest Modal */}
+            {showDigest && (
+                <div className="bg-gray-800 rounded-xl border border-purple-500/30 p-6 mb-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                            <div className="bg-purple-600/20 p-2 rounded-lg"><BoltIcon className="h-5 w-5 text-purple-400" /></div>
+                            <div>
+                                <h2 className="text-white font-semibold text-sm">AI Daily Digest</h2>
+                                <p className="text-gray-500 text-xs">Generated {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                            </div>
+                        </div>
+                        <button onClick={() => setShowDigest(false)} className="text-gray-400 hover:text-white transition">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                    {digestLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500"></div>
+                            <span className="ml-3 text-gray-400 text-sm">Analyzing your portfolio...</span>
+                        </div>
+                    ) : (
+                        <div className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{digestContent}</div>
+                    )}
+                </div>
+            )}
 
             {error && (
                 <div className="bg-red-500/10 border border-red-500 text-red-400 px-4 py-3 rounded-lg mb-6 text-sm">{error}</div>
@@ -643,7 +701,7 @@ export default function DashboardPage() {
                                         key={symbol}
                                         type="monotone"
                                         dataKey={symbol}
-                                        stroke={STOCK_COLORS[symbol] || '#6b7280'}
+                                        stroke={getStockColor(symbol)}
                                         strokeWidth={2}
                                         dot={false}
                                         connectNulls
@@ -667,7 +725,7 @@ export default function DashboardPage() {
                             <ResponsiveContainer width="60%" height={250}>
                                 <PieChart>
                                     <Pie data={mergedAllocation} cx="50%" cy="50%" innerRadius={60} outerRadius={100} dataKey="value" stroke="none">
-                                        {mergedAllocation.map((_, i) => (<Cell key={i} fill={COLORS[i % COLORS.length]} />))}
+                                        {mergedAllocation.map((_, i) => (<Cell key={i} fill={getPaletteColor(i)} />))}
                                     </Pie>
                                     <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px' }} itemStyle={{ color: '#e5e7eb' }} formatter={(v) => fmtShort(v)} />
                                 </PieChart>
@@ -676,7 +734,7 @@ export default function DashboardPage() {
                                 {mergedAllocation.map((item, i) => (
                                     <div key={item.name} className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
-                                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
+                                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: getPaletteColor(i) }}></div>
                                             <span className="text-sm text-gray-300">{item.name}</span>
                                         </div>
                                         <span className="text-sm text-gray-400">{((item.value / totalInvested) * 100).toFixed(1)}%</span>
@@ -733,7 +791,7 @@ export default function DashboardPage() {
                                 <tr key={h.id} className="border-b border-gray-700/50 hover:bg-gray-700/30 transition">
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-2">
-                                            <div className="w-2 h-8 rounded-full" style={{ backgroundColor: STOCK_COLORS[h.stockSymbol] || '#6b7280' }}></div>
+                                            <div className="w-2 h-8 rounded-full" style={{ backgroundColor: getStockColor(h.stockSymbol) }}></div>
                                             <div>
                                                 <span className="text-white font-semibold">{h.stockSymbol}</span>
                                                 {prices[h.stockSymbol]?.changePercent != null && (

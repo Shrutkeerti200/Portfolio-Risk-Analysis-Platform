@@ -9,9 +9,9 @@ This platform simulates a simplified version of the risk dashboards used by port
 ## Screenshots
 
 ### Authentication
-| Sign In | Sign Up | Email Verification |
-|---------|---------|-------------------|
-| ![Sign In](screenshots/sign%20in.png) | ![Sign Up](screenshots/sign%20up.png) | ![Email Verification](screenshots/email_verification.png) |
+| Sign In | Sign Up |
+|---------|---------|
+| ![Sign In](screenshots/sign_in.png) | ![Sign Up](screenshots/sign_up.png) |
 
 ### OTP Verification
 ![OTP Verification](screenshots/otp_verification.png)
@@ -19,50 +19,47 @@ This platform simulates a simplified version of the risk dashboards used by port
 ### Dashboard
 Live data with real-time price updates every 30 seconds.
 
-![Dashboard](screenshots/dashboard.png)
-![Dashboard Charts](screenshots/dashboard2.png)
-![Dashboard Holdings](screenshots/dashboard3.png)
+| Dashboard Overview | Dashboard Charts | Dashboard Holdings |
+|-------------------|-----------------|-------------------|
+| ![Dashboard](screenshots/dashboard1.png) | ![Dashboard Charts](screenshots/dashboard2.png) | ![Dashboard Holdings](screenshots/dashboard3.png) |
 
-### Dashboard — Market Closed
-Risk metrics persist from last market session instead of resetting to zero.
+### AI Daily Digest
+One-click AI-generated portfolio briefing covering performance, top movers, risk check, and observations.
 
-![Dashboard Market Closed](screenshots/dashboard-market-closed.png)
-
-### Stock Price Chart with Timeline Selector
-Historical market prices from Yahoo Finance with 24H, 1W, 1M, 6M, 1Y, 2Y, and 5Y range options.
-
-![Line Chart](screenshots/line-chart.png)
+![AI Daily Digest](screenshots/AI_daily_digest.png)
 
 ### Portfolio Management
-![Portfolios](screenshots/portfolios.png)
+| All Portfolios | Create New Portfolio |
+|---------------|---------------------|
+| ![Portfolios](screenshots/portfoliosPage.png) | ![New Portfolio](screenshots/new_portfolio.png) |
 
-### Holdings — Add, Buy More & Sell
-| Add Holding | Buy More | Sell Shares |
-|-------------|----------|-------------|
-| ![Add Holding](screenshots/add-holding.png) | ![Buy Holding](screenshots/buy-holding.png) | ![Sell Holding](screenshots/sell-holding.png) |
+### Portfolio Detail
+![Portfolio Detail](screenshots/portfolio.png)
 
-### Holdings
-Live P/L tracking with color-coded performance bars.
+### Holdings — Add, Buy & Sell
+| Add Stock + AI Research | Buy More | Sell Shares |
+|------------------------|----------|-------------|
+| ![Add & Research Stock](screenshots/add&ResearchStock.png) | ![Buy Stock](screenshots/buyStock.png) | ![Sell Stock](screenshots/sellStock.png) |
 
-![Holdings](screenshots/holdings.png)
+### AI Stock Research
+Research any stock with AI before adding it to your portfolio — get company overview, key metrics, risks, and portfolio fit analysis.
+
+![Add & Research Stock](screenshots/add&ResearchStock.png)
 
 ### Alert Rules & Settings
-| Alert Rules | Set Alert Rule | Settings |
-|-------------|---------------|----------|
-| ![Alert Rules](screenshots/set%20alert%20rules.png) | ![Set Alert](screenshots/set-alert.png) | ![Settings](screenshots/settings.png) |
+| Alert Rules | Settings |
+|-------------|----------|
+| ![Alert Rules](screenshots/alertRules.png) | ![Settings](screenshots/settingsPage.png) |
 
-### Notifications
-Grouped duplicate alerts with expand/collapse and bulk actions.
+### Notifications & AI Alert Summaries
+Grouped alerts with AI-powered plain-English explanations of what happened, why it matters, and what to watch.
 
-![Notifications](screenshots/notifications.png)
+![Notifications](screenshots/notificationPage.png)
 
 ### AI Portfolio Analyst
-Natural language portfolio analysis powered by Groq/Llama AI.
+Natural language portfolio analysis powered by Groq/Llama AI with suggested questions for diversification, risk, rebalancing, and more.
 
-![AI Assistant](screenshots/ai_assistant.png)
-
-### Footer
-![Footer](screenshots/footer.png)
+![AI Assistant](screenshots/AI_Assistant.png)
 
 ---
 
