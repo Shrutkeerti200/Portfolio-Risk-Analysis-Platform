@@ -12,7 +12,7 @@ import { BriefcaseIcon, CurrencyDollarIcon, ChartBarIcon, ScaleIcon, BoltIcon, A
 import AiAssistant from '../components/dashboard/AiAssistant';
 import * as XLSX from 'xlsx';
 import { getStockColor, getPaletteColor } from '../utils/stockColors';
-
+import MetricTooltip from '../components/dashboard/MetricTooltip';
 
 export default function DashboardPage() {
     const { user } = useAuth();
@@ -313,7 +313,6 @@ export default function DashboardPage() {
     const exportToExcel = async () => {
         const wb = XLSX.utils.book_new();
 
-        // Sheet 1: Portfolio Summary
         const summaryData = portfolios.map(p => {
             const risk = riskData[p.id];
             const holdings = p.holdings || [];
@@ -338,7 +337,6 @@ export default function DashboardPage() {
         ws1['!cols'] = summaryData.length > 0 ? Object.keys(summaryData[0]).map(() => ({ wch: 18 })) : [];
         XLSX.utils.book_append_sheet(wb, ws1, 'Portfolio Summary');
 
-        // Sheet 2: All Holdings
         const holdingsData = topHoldings.map(h => ({
             'Symbol': h.stockSymbol,
             'Portfolio': h.portfolioName,
@@ -354,7 +352,6 @@ export default function DashboardPage() {
         ws2['!cols'] = holdingsData.length > 0 ? Object.keys(holdingsData[0]).map(() => ({ wch: 18 })) : [];
         XLSX.utils.book_append_sheet(wb, ws2, 'All Holdings');
 
-        // Sheet 3: Transactions
         try {
             const allTransactions = [];
             for (const p of portfolios) {
@@ -385,7 +382,6 @@ export default function DashboardPage() {
             console.error('Error fetching transactions for export:', err);
         }
 
-        // Sheet 4: Risk Snapshot
         const riskMetrics = [{
             'Date': new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
             'Total Invested ($)': parseFloat(totalInvested.toFixed(2)),
@@ -450,6 +446,25 @@ export default function DashboardPage() {
             hour: 'numeric', minute: '2-digit',
             hour12: true, timeZoneName: 'short'
         });
+    };
+
+    const tooltips = {
+        currentValue:
+            'Current Value is the real-time market value of all your holdings across every portfolio. It is calculated by multiplying each holding\'s quantity by its latest market price and summing them up. The change shown compares this to your total cost basis (Total Invested).',
+        totalInvested:
+            'Total Invested is the total amount of money you originally spent to buy all your holdings. It is calculated as the sum of (quantity × average buy price) for every stock across all portfolios.',
+        totalHoldings:
+            'Total Holdings is the number of individual stock positions you own across all portfolios. "Unique stocks" counts each distinct ticker symbol only once, even if it appears in multiple portfolios.',
+        dailyVaR:
+            'Daily Value at Risk (VaR) at 95% confidence estimates the maximum dollar amount your portfolio could lose in a single trading day under normal market conditions. There is a 5% chance the actual loss could exceed this number. It is calculated using the portfolio\'s volatility and a statistical model (parametric VaR).',
+        volatility:
+            'Volatility measures how much your portfolio\'s returns fluctuate over time, expressed as an annualized percentage. Higher volatility means larger price swings and more risk. It is calculated as the standard deviation of daily returns, annualized by multiplying by √252 (trading days per year).',
+        sharpeRatio:
+            'The Sharpe Ratio measures risk-adjusted return — how much excess return you earn per unit of risk. A ratio above 1.0 is generally good; above 2.0 is very good; below 0 means the risk-free rate outperforms your portfolio. It is calculated as (portfolio return − risk-free rate) ÷ portfolio volatility.',
+        portfolioBeta:
+            'Portfolio Beta measures your portfolio\'s sensitivity to overall market movements (S&P 500). A beta of 1.0 means it moves with the market. Above 1.0 means more volatile than the market; below 1.0 means less volatile. It is calculated as the weighted average beta of each holding.',
+        dailyReturn:
+            'Daily Return is the percentage change in your portfolio\'s value from the previous trading day\'s close to the current price. It is calculated as (today\'s value − yesterday\'s value) ÷ yesterday\'s value × 100.',
     };
 
     return (
@@ -553,96 +568,118 @@ export default function DashboardPage() {
 
             {/* Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-gray-400 text-sm">Current Value</p>
-                            <p className="text-2xl font-bold text-white mt-1">{totalCurrentValue > 0 ? fmtShort(totalCurrentValue) : fmtShort(totalInvested)}</p>
-                            {totalCurrentValue > 0 && (
-                                <p className={`text-sm mt-1 ${totalPL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                    {totalPL >= 0 ? '▲' : '▼'} {fmt(Math.abs(totalPL))} ({totalPLPercent.toFixed(1)}%)
-                                </p>
-                            )}
+                <MetricTooltip tooltip={tooltips.currentValue}>
+                    <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-gray-400 text-sm">Current Value</p>
+                                <p className="text-2xl font-bold text-white mt-1">{totalCurrentValue > 0 ? fmtShort(totalCurrentValue) : fmtShort(totalInvested)}</p>
+                                {totalCurrentValue > 0 && (
+                                    <p className={`text-sm mt-1 ${totalPL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                        {totalPL >= 0 ? '▲' : '▼'} {fmt(Math.abs(totalPL))} ({totalPLPercent.toFixed(1)}%)
+                                    </p>
+                                )}
+                            </div>
+                            <div className="bg-blue-600/20 p-3 rounded-lg"><CurrencyDollarIcon className="h-6 w-6 text-blue-400" /></div>
                         </div>
-                        <div className="bg-blue-600/20 p-3 rounded-lg"><CurrencyDollarIcon className="h-6 w-6 text-blue-400" /></div>
                     </div>
-                </div>
-                <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-gray-400 text-sm">Total Invested</p>
-                            <p className="text-2xl font-bold text-white mt-1">{fmtShort(totalInvested)}</p>
-                            <p className="text-gray-500 text-sm mt-1">{totalPortfolios} portfolios</p>
+                </MetricTooltip>
+
+                <MetricTooltip tooltip={tooltips.totalInvested}>
+                    <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-gray-400 text-sm">Total Invested</p>
+                                <p className="text-2xl font-bold text-white mt-1">{fmtShort(totalInvested)}</p>
+                                <p className="text-gray-500 text-sm mt-1">{totalPortfolios} portfolios</p>
+                            </div>
+                            <div className="bg-green-600/20 p-3 rounded-lg"><BriefcaseIcon className="h-6 w-6 text-green-400" /></div>
                         </div>
-                        <div className="bg-green-600/20 p-3 rounded-lg"><BriefcaseIcon className="h-6 w-6 text-green-400" /></div>
                     </div>
-                </div>
-                <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-gray-400 text-sm">Total Holdings</p>
-                            <p className="text-2xl font-bold text-white mt-1">{totalHoldings}</p>
-                            <p className="text-gray-500 text-sm mt-1">{uniqueStocks} unique stocks</p>
+                </MetricTooltip>
+
+                <MetricTooltip tooltip={tooltips.totalHoldings}>
+                    <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-gray-400 text-sm">Total Holdings</p>
+                                <p className="text-2xl font-bold text-white mt-1">{totalHoldings}</p>
+                                <p className="text-gray-500 text-sm mt-1">{uniqueStocks} unique stocks</p>
+                            </div>
+                            <div className="bg-yellow-600/20 p-3 rounded-lg"><ChartBarIcon className="h-6 w-6 text-yellow-400" /></div>
                         </div>
-                        <div className="bg-yellow-600/20 p-3 rounded-lg"><ChartBarIcon className="h-6 w-6 text-yellow-400" /></div>
                     </div>
-                </div>
-                <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-gray-400 text-sm">Daily VaR (95%)</p>
-                            <p className="text-2xl font-bold text-red-400 mt-1">{fmt(totalVaR)}</p>
-                            <p className="text-gray-500 text-sm mt-1">Max daily loss</p>
+                </MetricTooltip>
+
+                <MetricTooltip tooltip={tooltips.dailyVaR}>
+                    <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-gray-400 text-sm">Daily VaR (95%)</p>
+                                <p className="text-2xl font-bold text-red-400 mt-1">{fmt(totalVaR)}</p>
+                                <p className="text-gray-500 text-sm mt-1">Max daily loss</p>
+                            </div>
+                            <div className="bg-red-600/20 p-3 rounded-lg"><ScaleIcon className="h-6 w-6 text-red-400" /></div>
                         </div>
-                        <div className="bg-red-600/20 p-3 rounded-lg"><ScaleIcon className="h-6 w-6 text-red-400" /></div>
                     </div>
-                </div>
+                </MetricTooltip>
             </div>
 
             {/* Risk Metrics */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-gray-400 text-xs uppercase tracking-wide">Volatility</p>
-                            <p className="text-xl font-bold text-white mt-1">{(avgVolatility * 100).toFixed(2)}%</p>
-                            <p className="text-gray-500 text-xs mt-1">Annualized portfolio risk</p>
+                <MetricTooltip tooltip={tooltips.volatility}>
+                    <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-gray-400 text-xs uppercase tracking-wide">Volatility</p>
+                                <p className="text-xl font-bold text-white mt-1">{(avgVolatility * 100).toFixed(2)}%</p>
+                                <p className="text-gray-500 text-xs mt-1">Annualized portfolio risk</p>
+                            </div>
+                            <div className="bg-orange-600/20 p-2.5 rounded-lg"><BoltIcon className="h-5 w-5 text-orange-400" /></div>
                         </div>
-                        <div className="bg-orange-600/20 p-2.5 rounded-lg"><BoltIcon className="h-5 w-5 text-orange-400" /></div>
                     </div>
-                </div>
-                <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-gray-400 text-xs uppercase tracking-wide">Sharpe Ratio</p>
-                            <p className={`text-xl font-bold mt-1 ${avgSharpe >= 0 ? 'text-green-400' : 'text-yellow-400'}`}>{avgSharpe.toFixed(2)}</p>
-                            <p className="text-gray-500 text-xs mt-1">Risk-adjusted return</p>
+                </MetricTooltip>
+
+                <MetricTooltip tooltip={tooltips.sharpeRatio}>
+                    <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-gray-400 text-xs uppercase tracking-wide">Sharpe Ratio</p>
+                                <p className={`text-xl font-bold mt-1 ${avgSharpe >= 0 ? 'text-green-400' : 'text-yellow-400'}`}>{avgSharpe.toFixed(2)}</p>
+                                <p className="text-gray-500 text-xs mt-1">Risk-adjusted return</p>
+                            </div>
+                            <div className="bg-purple-600/20 p-2.5 rounded-lg"><ArrowTrendingUpIcon className="h-5 w-5 text-purple-400" /></div>
                         </div>
-                        <div className="bg-purple-600/20 p-2.5 rounded-lg"><ArrowTrendingUpIcon className="h-5 w-5 text-purple-400" /></div>
                     </div>
-                </div>
-                <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-gray-400 text-xs uppercase tracking-wide">Portfolio Beta</p>
-                            <p className="text-xl font-bold text-white mt-1">{avgBeta.toFixed(2)}</p>
-                            <p className="text-gray-500 text-xs mt-1">Market sensitivity</p>
+                </MetricTooltip>
+
+                <MetricTooltip tooltip={tooltips.portfolioBeta}>
+                    <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-gray-400 text-xs uppercase tracking-wide">Portfolio Beta</p>
+                                <p className="text-xl font-bold text-white mt-1">{avgBeta.toFixed(2)}</p>
+                                <p className="text-gray-500 text-xs mt-1">Market sensitivity</p>
+                            </div>
+                            <div className="bg-cyan-600/20 p-2.5 rounded-lg"><ChartPieIcon className="h-5 w-5 text-cyan-400" /></div>
                         </div>
-                        <div className="bg-cyan-600/20 p-2.5 rounded-lg"><ChartPieIcon className="h-5 w-5 text-cyan-400" /></div>
                     </div>
-                </div>
-                <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-gray-400 text-xs uppercase tracking-wide">Daily Return</p>
-                            <p className={`text-xl font-bold mt-1 ${(Object.values(riskData)[0]?.dailyReturn || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                {((Object.values(riskData)[0]?.dailyReturn || 0) * 100).toFixed(3)}%
-                            </p>
-                            <p className="text-gray-500 text-xs mt-1">Latest daily change</p>
+                </MetricTooltip>
+
+                <MetricTooltip tooltip={tooltips.dailyReturn}>
+                    <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-gray-400 text-xs uppercase tracking-wide">Daily Return</p>
+                                <p className={`text-xl font-bold mt-1 ${(Object.values(riskData)[0]?.dailyReturn || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                    {((Object.values(riskData)[0]?.dailyReturn || 0) * 100).toFixed(3)}%
+                                </p>
+                                <p className="text-gray-500 text-xs mt-1">Latest daily change</p>
+                            </div>
+                            <div className="bg-emerald-600/20 p-2.5 rounded-lg"><ArrowPathIcon className="h-5 w-5 text-emerald-400" /></div>
                         </div>
-                        <div className="bg-emerald-600/20 p-2.5 rounded-lg"><ArrowPathIcon className="h-5 w-5 text-emerald-400" /></div>
                     </div>
-                </div>
+                </MetricTooltip>
             </div>
 
             {/* Stock Price History Chart */}
