@@ -28,8 +28,18 @@ Risk metrics persist from last market session instead of resetting to zero.
 
 ![Dashboard Market Closed](screenshots/dashboard-market-closed.png)
 
+### Stock Price Chart with Timeline Selector
+Historical market prices from Yahoo Finance with 24H, 1W, 1M, 6M, 1Y, 2Y, and 5Y range options.
+
+![Line Chart](screenshots/line-chart.png)
+
 ### Portfolio Management
 ![Portfolios](screenshots/portfolios.png)
+
+### Holdings — Add, Buy More & Sell
+| Add Holding | Buy More | Sell Shares |
+|-------------|----------|-------------|
+| ![Add Holding](screenshots/add-holding.png) | ![Buy Holding](screenshots/buy-holding.png) | ![Sell Holding](screenshots/sell-holding.png) |
 
 ### Holdings
 Live P/L tracking with color-coded performance bars.
@@ -39,9 +49,11 @@ Live P/L tracking with color-coded performance bars.
 ### Alert Rules & Settings
 | Alert Rules | Set Alert Rule | Settings |
 |-------------|---------------|----------|
-| ![Alert Rules](screenshots/alert%20rules.png) | ![Set Alert Rules](screenshots/set%20alert%20rules.png) | ![Settings](screenshots/settings.png) |
+| ![Alert Rules](screenshots/set%20alert%20rules.png) | ![Set Alert](screenshots/set-alert.png) | ![Settings](screenshots/settings.png) |
 
 ### Notifications
+Grouped duplicate alerts with expand/collapse and bulk actions.
+
 ![Notifications](screenshots/notifications.png)
 
 ### AI Portfolio Analyst
@@ -49,19 +61,27 @@ Natural language portfolio analysis powered by Groq/Llama AI.
 
 ![AI Assistant](screenshots/ai_assistant.png)
 
+### Footer
+![Footer](screenshots/footer.png)
+
 ---
 
 ## Features
 
 - **User Authentication** — JWT-based auth with email OTP verification, password strength validation, and email alias normalization
-- **Portfolio Management** — Create portfolios, add/remove stock holdings, track buy/sell transactions with real-time P/L tracking
+- **Portfolio Management** — Create portfolios, add/remove stock holdings, buy more/sell shares with weighted average cost recalculation
+- **Transaction History** — Full buy/sell transaction log per holding with date, quantity, price, and total amount tracking
 - **Real-Time Market Data** — Live stock prices streamed via Kafka from the Finnhub API, updated every 30 seconds
+- **Historical Price Charts** — Interactive stock price charts powered by Yahoo Finance with selectable time ranges (24H, 1W, 1M, 6M, 1Y, 2Y, 5Y)
 - **Risk Analytics** — Automated calculation of Volatility, Sharpe Ratio, Value at Risk (VaR), and Portfolio Beta
-- **Interactive Dashboard** — Summary cards, asset allocation pie chart, invested vs current value comparison, stock price movement chart
-- **Custom Alert Rules** — User-configurable thresholds for volatility, VaR, Sharpe ratio, and beta with real-time evaluation
-- **Notifications** — Automated alerts via RabbitMQ when risk metrics exceed user-defined thresholds
+- **Market Hours Detection** — Automatically detects market open/close (Mon–Fri 9:30 AM–4:00 PM ET), preserves last meaningful risk snapshot after hours
+- **Market Status Banner** — Real-time market open/closed indicator with next open/close time and pulsing live data indicator
+- **Interactive Dashboard** — Summary cards with icons, asset allocation pie chart, invested vs current value comparison, and multi-stock price movement chart
+- **Custom Alert Rules** — User-configurable thresholds for volatility, VaR, Sharpe ratio, beta, and daily return with 1-hour cooldown to prevent spam
+- **Grouped Notifications** — Duplicate alerts are collapsed with expand/collapse, bulk mark-as-read, and delete-all functionality
 - **AI Portfolio Analyst** — Natural language portfolio analysis powered by Groq/Llama AI — ask questions about allocation, risk, and diversification
-- **Role-Based Access** — Clients see their own portfolios; Advisors manage multiple client portfolios
+- **Excel Export** — Export all portfolios, holdings, transactions, and risk metrics to Excel from the dashboard or per-portfolio
+- **Role-Based Access** — Clients see their own portfolios; Advisors can manage multiple client portfolios
 - **Responsive Design** — Mobile-friendly with hamburger menu and horizontal scrolling tables
 - **CI/CD Pipeline** — Automated build verification via GitHub Actions on every push
 
@@ -74,7 +94,7 @@ The platform follows an event-driven microservices architecture with three indep
 ```
 [Finnhub API] → [Risk Engine] → [Kafka] → [Risk Calculator] → [Redis + PostgreSQL]
                                                   ↓
-                                            [RabbitMQ] → [Notification Service]
+[Yahoo Finance] → [Historical Prices]       [RabbitMQ] → [Notification Service]
                                                   ↓
 [React Dashboard] ← REST APIs ← [Portfolio Service] ← [Redis Cache]
 ```
@@ -83,20 +103,20 @@ The platform follows an event-driven microservices architecture with three indep
 
 ## Tech Stack
 
-| Layer        | Technology                                                  |
-|--------------|-------------------------------------------------------------|
-| Backend      | Java 21, Spring Boot 3.5, Spring Security, Spring Data JPA  |
-| Streaming    | Apache Kafka (real-time price feeds)                        |
-| Messaging    | RabbitMQ (alerts & task queues)                             |
-| Caching      | Redis (current prices & risk metrics)                       |
-| Database     | PostgreSQL 15                                               |
-| Frontend     | React 18, Vite, Recharts, Tailwind CSS, Axios               |
-| AI           | Groq API (Llama 3.3 70B) for portfolio analysis             |
-| Containers   | Docker + Docker Compose                                     |
-| CI/CD        | GitHub Actions                                              |
-| API Docs     | Springdoc OpenAPI (Swagger UI)                              |
-| Testing      | JUnit 5, Mockito                                            |
-| External API | Finnhub (real-time stock data)                              |
+| Layer        | Technology                                                        |
+|--------------|-------------------------------------------------------------------|
+| Backend      | Java 21, Spring Boot 3.5, Spring Security, Spring Data JPA        |
+| Streaming    | Apache Kafka (real-time price feeds)                              |
+| Messaging    | RabbitMQ (alerts & task queues)                                   |
+| Caching      | Redis (current prices & risk metrics)                             |
+| Database     | PostgreSQL 15                                                     |
+| Frontend     | React 18, Vite, Recharts, Tailwind CSS, Axios                     |
+| AI           | Groq API (Llama 3.3 70B) for portfolio analysis                   |
+| Containers   | Docker + Docker Compose                                           |
+| CI/CD        | GitHub Actions                                                    |
+| API Docs     | Springdoc OpenAPI (Swagger UI)                                    |
+| Testing      | JUnit 5, Mockito                                                  |
+| External API | Finnhub (real-time stock data), Yahoo Finance (historical prices) |
 
 ---
 
@@ -104,7 +124,7 @@ The platform follows an event-driven microservices architecture with three indep
 
 | Service                  | Port | Responsibility                                                                 |
 |--------------------------|------|--------------------------------------------------------------------------------|
-| **Portfolio Service**    | 8081 | User auth (JWT+OTP), portfolio CRUD, holdings management, WebSocket broadcaster    |
+| **Portfolio Service**    | 8081 | User auth (JWT+OTP), portfolio CRUD, holdings management, WebSocket broadcaster|
 | **Risk Engine Service**  | 8082 | Price fetching (Finnhub), Kafka streaming, risk calculations, alert evaluation |
 | **Notification Service** | 8083 | RabbitMQ consumer, alert processing, notification storage & delivery           |
 
@@ -126,17 +146,20 @@ The platform follows an event-driven microservices architecture with three indep
 
 ### Portfolios & Holdings (Port 8081)
 
-| Method | Endpoint                               | Description            | Auth |
-|--------|----------------------------------------|------------------------|------|
-| GET    | `/api/portfolios`                      | Get all portfolios     | Yes  |
-| POST   | `/api/portfolios`                      | Create portfolio       | Yes  |
-| GET    | `/api/portfolios/{id}`                 | Get portfolio detail   | Yes  |
-| PUT    | `/api/portfolios/{id}`                 | Update portfolio       | Yes  |
-| DELETE | `/api/portfolios/{id}`                 | Delete portfolio       | Yes  |
-| GET    | `/api/portfolios/{id}/holdings`        | Get holdings           | Yes  |
-| POST   | `/api/portfolios/{id}/holdings`        | Add holding            | Yes  |
-| DELETE | `/api/portfolios/holdings/{holdingId}` | Remove holding         | Yes  |
-| GET    | `/api/portfolios/{id}/transactions`    | Get transactions       | Yes  |
+| Method | Endpoint                                            | Description                        | Auth |
+|--------|-----------------------------------------------------|------------------------------------|------|
+| GET    | `/api/portfolios`                                   | Get all portfolios                 | Yes  |
+| POST   | `/api/portfolios`                                   | Create portfolio                   | Yes  |
+| GET    | `/api/portfolios/{id}`                              | Get portfolio detail               | Yes  |
+| PUT    | `/api/portfolios/{id}`                              | Update portfolio                   | Yes  |
+| DELETE | `/api/portfolios/{id}`                              | Delete portfolio                   | Yes  |
+| GET    | `/api/portfolios/{id}/holdings`                     | Get holdings                       | Yes  |
+| POST   | `/api/portfolios/{id}/holdings`                     | Add holding (with purchase date)   | Yes  |
+| PUT    | `/api/portfolios/holdings/{holdingId}`              | Update holding                     | Yes  |
+| DELETE | `/api/portfolios/holdings/{holdingId}`              | Remove holding                     | Yes  |
+| POST   | `/api/portfolios/holdings/{holdingId}/transactions` | Buy more or sell shares            | Yes  |
+| GET    | `/api/portfolios/holdings/{holdingId}/transactions` | Get holding transaction history    | Yes  |
+| GET    | `/api/portfolios/{id}/transactions`                 | Get all portfolio transactions     | Yes  |
 
 ### AI Chat (Port 8081)
 
@@ -146,14 +169,17 @@ The platform follows an event-driven microservices architecture with three indep
 
 ### Risk Engine (Port 8082)
 
-| Method | Endpoint                                    | Description                   |
-|--------|---------------------------------------------|-------------------------------|
-| GET    | `/api/risk/portfolio/{portfolioId}`         | Get latest risk metrics       |
-| GET    | `/api/risk/portfolio/{portfolioId}/history` | Get historical risk snapshots |
-| GET    | `/api/risk/prices/{symbol}`                 | Get latest stock price        |
-| GET    | `/api/risk/prices?symbols=AAPL,GOOGL`      | Get prices for multiple stocks|
-| GET    | `/api/risk/prices/{symbol}/history`         | Get stock price history       |
-| GET    | `/api/risk/health`                          | Service health check          |
+| Method | Endpoint                                    | Description                            |
+|--------|---------------------------------------------|----------------------------------------|
+| GET    | `/api/risk/portfolio/{portfolioId}`         | Get latest risk metrics                |
+| GET    | `/api/risk/portfolio/{portfolioId}/history` | Get historical risk snapshots          |
+| POST   | `/api/risk/calculate/{portfolioId}`         | Trigger risk recalculation             |
+| GET    | `/api/risk/market-status`                   | Get market open/close status           |
+| GET    | `/api/risk/prices/{symbol}`                 | Get latest stock price                 |
+| GET    | `/api/risk/prices?symbols=AAPL,GOOGL`       | Get prices for multiple stocks         |
+| GET    | `/api/risk/prices/{symbol}/history`         | Get stock price history (DB)           |
+| GET    | `/api/risk/prices/{symbol}/candles`         | Get historical candles (Yahoo Finance) |
+| GET    | `/api/risk/health`                          | Service health check                   |
 
 ### Notifications & Alerts (Port 8083)
 
@@ -200,9 +226,11 @@ The platform follows an event-driven microservices architecture with three indep
 3. **Risk Calculation** — Kafka consumer triggers risk recalculation for affected portfolios
 4. **Storage** — Risk snapshots saved to PostgreSQL, current prices cached in Redis
 5. **Market Hours Check** — After market close (4:00 PM ET), risk engine preserves last meaningful snapshot instead of overwriting with zeros
-6. **Alert Evaluation** — Notification Service evaluates user-defined alert rules against current metrics
-7. **Alert Delivery** — Triggered alerts sent via RabbitMQ and stored as notifications
-8. **Dashboard** — Frontend fetches data every 30 seconds, displaying live charts and P/L
+6. **Historical Prices** — Yahoo Finance provides historical candle data (24H to 5Y) for the interactive chart, independent of when the service was running
+7. **Alert Evaluation** — Notification Service evaluates user-defined alert rules against current metrics with 1-hour cooldown to prevent duplicate alerts
+8. **Alert Delivery** — Triggered alerts sent via RabbitMQ, stored as notifications, and grouped on the frontend
+9. **Dashboard** — Frontend fetches data every 30 seconds, displays live charts, P/L, market status, and supports Excel export
+10. **Transaction Tracking** — Buy/sell transactions are recorded with dates and prices, holdings auto-update with weighted average cost basis
 
 ---
 
@@ -211,21 +239,30 @@ The platform follows an event-driven microservices architecture with three indep
 -  [x] Project setup & Docker Compose (PostgreSQL, Redis, Kafka, Zookeeper, RabbitMQ)
 - [x] Portfolio Service — JWT Authentication with email OTP verification
 - [x] Portfolio Service — Portfolio, Holdings & Transaction CRUD APIs
+- [x] Portfolio Service — Buy more / sell shares with weighted avg cost recalculation
+- [x] Portfolio Service — Transaction history per holding with purchase dates
 - [x] Risk Engine — Finnhub API integration (real-time stock prices)
 - [x] Risk Engine — Apache Kafka producer/consumer (price streaming)
 - [x] Risk Engine — Risk calculation engine (Volatility, Sharpe, VaR, Beta)
 - [x] Risk Engine — Stock price history API
 - [x] Risk Engine — Market hours detection with risk metric persistence
 - [x] Risk Engine — Market status API endpoint
+- [x] Risk Engine — Yahoo Finance integration for historical price charts
 - [x] Notification Service — RabbitMQ alert pipeline
 - [x] Notification Service — Custom alert rules with configurable thresholds
+- [x] Notification Service — 1-hour alert cooldown to prevent notification spam
 - [x] React Frontend — Auth pages (Login, Register, Email Verification)
 - [x] React Frontend — Dashboard with charts, risk metrics, and live P/L
 - [x] React Frontend — Market open/closed status banner with live indicator
-- [x] React Frontend — Deduplicated chart timeline labels
+- [x] React Frontend — Interactive price chart with timeline selector (24H to 5Y)
+- [x] React Frontend — Portfolio detail with buy/sell transactions and history
+- [x] React Frontend — Excel export (dashboard-wide and per-portfolio)
+- [x] React Frontend — Grouped notifications with expand/collapse and delete all
+- [x] React Frontend — Risk metric cards with icons
 - [x] React Frontend — Portfolio management with real-time stock prices
 - [x] React Frontend — Notifications page with alert display
 - [x] React Frontend — Settings page with alert rule management
+- [x] React Frontend — Footer with brand, links, and social icons
 - [x] AI-Powered Portfolio Analyst (Groq/Llama integration)
 - [x] Responsive design with mobile support
 - [x] CI/CD Pipeline (GitHub Actions)
