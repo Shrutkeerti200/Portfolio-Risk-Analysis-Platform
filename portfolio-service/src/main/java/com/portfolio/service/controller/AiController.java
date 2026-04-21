@@ -122,6 +122,37 @@ public class AiController {
     }
 
     /**
+     * Explain technical indicators (SMA, RSI, Momentum) for a stock in beginner-friendly language.
+     */
+    @PostMapping("/explain-indicators")
+    public ResponseEntity<Map<String, String>> explainIndicators(@RequestBody String body, Authentication auth) {
+        Map<String, String> result = new HashMap<>();
+ 
+        if (auth == null) {
+            result.put("error", "Unauthorized");
+            return ResponseEntity.status(401).body(result);
+        }
+ 
+        try {
+            JsonNode json = objectMapper.readTree(body);
+            String indicatorData = json.has("indicatorData") ? json.get("indicatorData").asText() : "";
+ 
+            if (indicatorData.isBlank()) {
+                result.put("response", "No indicator data available to explain.");
+                return ResponseEntity.badRequest().body(result);
+            }
+ 
+            String response = aiService.explainIndicators(indicatorData);
+            result.put("response", response);
+            return ResponseEntity.ok(result);
+ 
+        } catch (Exception e) {
+            result.put("response", "Error explaining indicators: " + e.getMessage());
+            return ResponseEntity.badRequest().body(result);
+        }
+    }
+
+    /**
      * Summarize an alert in plain English with context.
      */
     @PostMapping("/summarize-alert")

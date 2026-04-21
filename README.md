@@ -19,9 +19,15 @@ This platform simulates a simplified version of the risk dashboards used by port
 ### Dashboard
 Live data with real-time price updates every 30 seconds.
 
-| Dashboard Overview | Dashboard Charts | Dashboard Holdings | Dashboard Market Closed |
-|-------------------|-----------------|-------------------|-----------------
-| ![Dashboard Market Open](screenshots/dashboard1.png) | ![Dashboard Charts](screenshots/dashboard2.png) | ![Dashboard Holdings](screenshots/dashboard3.png) | ![Dashboard Market Closed](screenshots/marketClosed.png) |
+| Dashboard Overview |
+| Market Open | Market Closed |
+|-----------------------|-------------------------|
+| ![Dashboard Market Open](screenshots/dashboard1.png) | ![Dashboard Market Closed](screenshots/marketClosed.png) |
+
+| Dashboard Overview | 
+| Line Graph | Technical Indicators | AI Analysis | Dashboard Holdings |
+|-------------------|-----------------|-------------------|-----------------|
+| ![Dashboard Line Graph](screenshots/LineGraph.png) | ![Dashboard Technical Indicators](screenshots/technicalIndicators.png) | ![Dashboard AI Analysis](screenshots/AiChartAnalysis.png) | ![Dashboard Holdings](screenshots/dashboard3.png) |
 
 ### AI Daily Digest
 One-click AI-generated portfolio briefing covering performance, top movers, risk check, and observations.

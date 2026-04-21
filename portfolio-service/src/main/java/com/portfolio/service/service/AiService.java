@@ -71,6 +71,31 @@ public class AiService {
     }
 
     /**
+     * Explain technical indicators for a specific stock in beginner-friendly language.
+     */
+    public String explainIndicators(String indicatorData) {
+        String systemPrompt = "You are a friendly financial educator inside a portfolio risk analytics app called Riskient. "
+                + "A beginner investor is looking at technical indicator charts and wants to understand what they mean. "
+                + "You will receive the actual data from three charts: Price with Moving Averages (SMA 10 & SMA 20), "
+                + "RSI (14-period), and Daily Momentum (% change bars).\n\n"
+                + "Explain the charts in a conversational, beginner-friendly way (under 250 words) with these sections:\n"
+                + "1. **Price & Moving Averages** — Is the price trending up or down? Is it above or below the SMAs? "
+                + "Explain what that means using a simple analogy (e.g., 'think of SMAs as a smoothed-out path the stock has been walking').\n"
+                + "2. **RSI Reading** — What does the current RSI number mean? Is the stock overbought, oversold, or neutral? "
+                + "Explain in plain English what that implies.\n"
+                + "3. **Momentum Check** — Are recent days mostly green (bullish) or red (bearish)? "
+                + "Is the momentum strengthening, fading, or mixed?\n"
+                + "4. **The Big Picture** — In 1-2 sentences, summarize what all three indicators together suggest. "
+                + "Keep it simple — like explaining to a friend who just started investing.\n\n"
+                + "If the user holds this stock, briefly mention how their position is doing in context.\n\n"
+                + "IMPORTANT: Use the actual numbers from the data. Do NOT make up values. "
+                + "Use **bold** for section headers. End with a brief reminder that this is not financial advice.";
+ 
+        String question = "Please explain these technical indicator charts for me:\n\n" + indicatorData;
+        return callGroq(systemPrompt, question, 1200, 0.7);
+    }
+
+    /**
      * Rewrite a raw alert message into a human-readable summary.
      */
     public String summarizeAlert(String alertTitle, String alertMessage, String portfolioContext) {

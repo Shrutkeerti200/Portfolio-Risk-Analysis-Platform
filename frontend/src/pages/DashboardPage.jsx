@@ -6,13 +6,152 @@ import { useAuth } from '../context/AuthContext';
 import {
     PieChart, Pie, Cell, ResponsiveContainer,
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-    LineChart, Line, Area, AreaChart,
+    LineChart, Line, Area, AreaChart, ReferenceLine, ComposedChart,
 } from 'recharts';
 import { BriefcaseIcon, CurrencyDollarIcon, ChartBarIcon, ScaleIcon, BoltIcon, ArrowTrendingUpIcon, ChartPieIcon, ArrowPathIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import AiAssistant from '../components/dashboard/AiAssistant';
-import * as XLSX from 'xlsx';
-import { getStockColor, getPaletteColor } from '../utils/stockColors';
 import MetricTooltip from '../components/dashboard/MetricTooltip';
+import * as XLSX from 'xlsx';
+
+const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
+const STOCK_COLORS = {
+    AAPL: '#3b82f6', GOOGL: '#10b981', TSLA: '#ef4444', NVDA: '#8b5cf6',
+    MSFT: '#06b6d4', JNJ: '#f59e0b', KO: '#ec4899', PG: '#f97316', META: '#6366f1',
+    IBM: '#6b7280',
+};
+
+// ─── Technical Indicator Helpers ───────────────────────────────────────────────
+
+function computeSMA(data, key, window) {
+    const result = [];
+    for (let i = 0; i < data.length; i++) {
+        if (i < window - 1 || data[i][key] == null) {
+            result.push(null);
+        } else {
+            let sum = 0;
+            let count = 0;
+            for (let j = i - window + 1; j <= i; j++) {
+                if (data[j][key] != null) {
+                    sum += data[j][key];
+                    count++;
+                }
+            }
+            result.push(count > 0 ? sum / count : null);
+        }
+    }
+    return result;
+}
+
+function computeRSI(data, key, period = 14) {
+    const result = [];
+    let avgGain = 0;
+    let avgLoss = 0;
+
+    for (let i = 0; i < data.length; i++) {
+        if (i === 0 || data[i][key] == null || data[i - 1][key] == null) {
+            result.push(null);
+            continue;
+        }
+
+        const change = data[i][key] - data[i - 1][key];
+        const gain = change > 0 ? change : 0;
+        const loss = change < 0 ? Math.abs(change) : 0;
+
+        if (i <= period) {
+            avgGain += gain;
+            avgLoss += loss;
+
+            if (i === period) {
+                avgGain /= period;
+                avgLoss /= period;
+                if (avgLoss === 0) {
+                    result.push(100);
+                } else {
+                    const rs = avgGain / avgLoss;
+                    result.push(100 - (100 / (1 + rs)));
+                }
+            } else {
+                result.push(null);
+            }
+        } else {
+            avgGain = (avgGain * (period - 1) + gain) / period;
+            avgLoss = (avgLoss * (period - 1) + loss) / period;
+
+            if (avgLoss === 0) {
+                result.push(100);
+            } else {
+                const rs = avgGain / avgLoss;
+                result.push(100 - (100 / (1 + rs)));
+            }
+        }
+    }
+    return result;
+}
+
+function computeMomentum(data, key) {
+    const result = [];
+    for (let i = 0; i < data.length; i++) {
+        if (i === 0 || data[i][key] == null || data[i - 1][key] == null || data[i - 1][key] === 0) {
+            result.push(null);
+        } else {
+            const pctChange = ((data[i][key] - data[i - 1][key]) / data[i - 1][key]) * 100;
+            result.push(parseFloat(pctChange.toFixed(3)));
+        }
+    }
+    return result;
+}
+
+// ─── Custom Tooltip for Indicators ────────────────────────────────────────────
+
+function IndicatorTooltip({ active, payload, label, type }) {
+    if (!active || !payload || payload.length === 0) return null;
+    const point = payload[0]?.payload;
+    const time = point?.fullTime || label;
+
+    return (
+        <div style={{
+            backgroundColor: '#1f2937', border: '1px solid #374151',
+            borderRadius: '8px', padding: '10px 14px', fontSize: '12px',
+        }}>
+            <p style={{ color: '#9ca3af', marginBottom: '6px' }}>{time}</p>
+            {payload.map((entry, i) => (
+                entry.value != null && (
+                    <p key={i} style={{ color: entry.color || entry.stroke || '#e5e7eb', margin: '2px 0' }}>
+                        {entry.name}: {type === 'rsi' ? entry.value.toFixed(1) :
+                            type === 'momentum' ? `${entry.value >= 0 ? '+' : ''}${entry.value.toFixed(3)}%` :
+                                `$${entry.value.toFixed(2)}`}
+                    </p>
+                )
+            ))}
+        </div>
+    );
+}
+
+// ─── Stock Selector ───────────────────────────────────────────────────────────
+
+function StockSelector({ symbols, activeStock, onSelect }) {
+    return (
+        <div className="flex flex-wrap gap-1.5">
+            {symbols.map(symbol => (
+                <button
+                    key={symbol}
+                    onClick={() => onSelect(symbol)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${
+                        activeStock === symbol
+                            ? 'text-white shadow-md'
+                            : 'bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-gray-200'
+                    }`}
+                    style={activeStock === symbol ? {
+                        backgroundColor: STOCK_COLORS[symbol] || '#6b7280',
+                    } : {}}
+                >
+                    {symbol}
+                </button>
+            ))}
+        </div>
+    );
+}
+
 
 export default function DashboardPage() {
     const { user } = useAuth();
@@ -30,6 +169,19 @@ export default function DashboardPage() {
     const [digestContent, setDigestContent] = useState(null);
     const [showDigest, setShowDigest] = useState(false);
 
+    // Technical indicator state
+    const [activeIndicatorStock, setActiveIndicatorStock] = useState(null);
+    const [indicatorData, setIndicatorData] = useState([]);
+
+    // Tab state for Stock Price Movement vs Technical Indicators
+    const [activeChartTab, setActiveChartTab] = useState('price');
+
+    // AI Explain state
+    const [aiExplainLoading, setAiExplainLoading] = useState(false);
+    const [aiExplainContent, setAiExplainContent] = useState(null);
+    const [showAiExplain, setShowAiExplain] = useState(false);
+    const [aiExplainStock, setAiExplainStock] = useState(null);
+
     useEffect(() => {
         fetchDashboardData();
         fetchMarketStatus();
@@ -40,6 +192,31 @@ export default function DashboardPage() {
             clearInterval(marketInterval);
         };
     }, []);
+
+    // Recompute indicators when priceHistory or activeIndicatorStock changes
+    useEffect(() => {
+        if (priceHistory.length > 0 && activeIndicatorStock) {
+            const sma10 = computeSMA(priceHistory, activeIndicatorStock, 10);
+            const sma20 = computeSMA(priceHistory, activeIndicatorStock, 20);
+            const rsi = computeRSI(priceHistory, activeIndicatorStock, 14);
+            const momentum = computeMomentum(priceHistory, activeIndicatorStock);
+
+            const enriched = priceHistory.map((point, i) => ({
+                ...point,
+                sma10: sma10[i],
+                sma20: sma20[i],
+                rsi: rsi[i],
+                momentum: momentum[i],
+                price: point[activeIndicatorStock] ?? null,
+                momentumPos: momentum[i] != null && momentum[i] >= 0 ? momentum[i] : null,
+                momentumNeg: momentum[i] != null && momentum[i] < 0 ? momentum[i] : null,
+            }));
+
+            setIndicatorData(enriched);
+        } else {
+            setIndicatorData([]);
+        }
+    }, [priceHistory, activeIndicatorStock]);
 
     const fetchMarketStatus = async () => {
         try {
@@ -74,6 +251,7 @@ export default function DashboardPage() {
                 const priceData = await riskService.getStockPrices(symbols);
                 setPrices(priceData);
                 await fetchPriceHistory(symbols, '1M');
+                setActiveIndicatorStock(symbols[0]);
             }
         } catch (err) {
             setError('Failed to load dashboard data.');
@@ -103,13 +281,7 @@ export default function DashboardPage() {
             const now = Math.floor(Date.now() / 1000);
 
             const rangeMap = {
-                '24H': 1,
-                '1W': 7,
-                '1M': 30,
-                '6M': 180,
-                '1Y': 365,
-                '2Y': 730,
-                '5Y': 1825,
+                '24H': 1, '1W': 7, '1M': 30, '6M': 180, '1Y': 365, '2Y': 730, '5Y': 1825,
             };
             const days = rangeMap[range] || 30;
             const from = now - days * 86400;
@@ -423,6 +595,68 @@ export default function DashboardPage() {
         }
     };
 
+    // ─── AI Explain Technical Indicators ───────────────────────────────────────
+    const generateAiExplanation = async () => {
+        if (!activeIndicatorStock || indicatorData.length === 0) return;
+
+        setAiExplainLoading(true);
+        setShowAiExplain(true);
+        setAiExplainStock(activeIndicatorStock);
+
+        // Build context from the indicator data
+        const latestPoint = indicatorData[indicatorData.length - 1];
+        const firstPoint = indicatorData.find(p => p.price != null);
+        const latestPrice = latestPoint?.price;
+        const firstPrice = firstPoint?.price;
+        const priceChange = latestPrice && firstPrice ? ((latestPrice - firstPrice) / firstPrice * 100).toFixed(2) : null;
+
+        const latestSMA10 = latestPoint?.sma10;
+        const latestSMA20 = latestPoint?.sma20;
+        const latestRSIVal = latestPoint?.rsi;
+
+        const bullishDays = indicatorData.filter(d => d.momentumPos != null).length;
+        const bearishDays = indicatorData.filter(d => d.momentumNeg != null).length;
+        const maxGain = Math.max(...indicatorData.map(d => d.momentumPos || 0));
+        const maxLoss = Math.min(...indicatorData.map(d => d.momentumNeg || 0));
+
+        const holding = topHoldings.find(h => h.stockSymbol === activeIndicatorStock);
+
+        let indicatorContext = `Stock: ${activeIndicatorStock}\n`;
+        indicatorContext += `Time Period: ${indicatorData[0]?.dateKey || 'N/A'} to ${latestPoint?.dateKey || 'N/A'}\n`;
+        indicatorContext += `Current Price: $${latestPrice?.toFixed(2) || 'N/A'}\n`;
+        if (priceChange) indicatorContext += `Price Change over period: ${priceChange}%\n`;
+        if (latestSMA10) indicatorContext += `SMA 10: $${latestSMA10.toFixed(2)} (Price is ${latestPrice > latestSMA10 ? 'ABOVE' : 'BELOW'} SMA 10)\n`;
+        if (latestSMA20) indicatorContext += `SMA 20: $${latestSMA20.toFixed(2)} (Price is ${latestPrice > latestSMA20 ? 'ABOVE' : 'BELOW'} SMA 20)\n`;
+        if (latestRSIVal) indicatorContext += `RSI (14): ${latestRSIVal.toFixed(1)} (${latestRSIVal >= 70 ? 'Overbought' : latestRSIVal <= 30 ? 'Oversold' : 'Neutral'})\n`;
+        indicatorContext += `Momentum: ${bullishDays} bullish days, ${bearishDays} bearish days\n`;
+        indicatorContext += `Max single-day gain: +${maxGain.toFixed(3)}%, Max single-day loss: ${maxLoss.toFixed(3)}%\n`;
+        if (holding) {
+            indicatorContext += `\nUser's Position:\n`;
+            indicatorContext += `- Quantity: ${holding.quantity} shares\n`;
+            indicatorContext += `- Avg Cost: $${holding.avgBuyPrice}\n`;
+            indicatorContext += `- Current Value: $${holding.currentValue.toFixed(2)}\n`;
+            indicatorContext += `- P/L: $${holding.pl.toFixed(2)} (${holding.plPercent.toFixed(1)}%)\n`;
+        }
+
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch('http://localhost:8081/api/ai/explain-indicators', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: 'Bearer ' + token,
+                },
+                body: JSON.stringify({ indicatorData: indicatorContext }),
+            });
+            const data = await response.json();
+            setAiExplainContent(data.response || 'Could not generate explanation.');
+        } catch {
+            setAiExplainContent('Failed to generate explanation. Please try again.');
+        } finally {
+            setAiExplainLoading(false);
+        }
+    };
+
     if (totalPortfolios === 0) {
         return (
             <div className="text-center py-20 bg-gray-800 rounded-xl border border-gray-700">
@@ -448,24 +682,16 @@ export default function DashboardPage() {
         });
     };
 
-    const tooltips = {
-        currentValue:
-            'Current Value is the real-time market value of all your holdings across every portfolio. It is calculated by multiplying each holding\'s quantity by its latest market price and summing them up. The change shown compares this to your total cost basis (Total Invested).',
-        totalInvested:
-            'Total Invested is the total amount of money you originally spent to buy all your holdings. It is calculated as the sum of (quantity × average buy price) for every stock across all portfolios.',
-        totalHoldings:
-            'Total Holdings is the number of individual stock positions you own across all portfolios. "Unique stocks" counts each distinct ticker symbol only once, even if it appears in multiple portfolios.',
-        dailyVaR:
-            'Daily Value at Risk (VaR) at 95% confidence estimates the maximum dollar amount your portfolio could lose in a single trading day under normal market conditions. There is a 5% chance the actual loss could exceed this number. It is calculated using the portfolio\'s volatility and a statistical model (parametric VaR).',
-        volatility:
-            'Volatility measures how much your portfolio\'s returns fluctuate over time, expressed as an annualized percentage. Higher volatility means larger price swings and more risk. It is calculated as the standard deviation of daily returns, annualized by multiplying by √252 (trading days per year).',
-        sharpeRatio:
-            'The Sharpe Ratio measures risk-adjusted return — how much excess return you earn per unit of risk. A ratio above 1.0 is generally good; above 2.0 is very good; below 0 means the risk-free rate outperforms your portfolio. It is calculated as (portfolio return − risk-free rate) ÷ portfolio volatility.',
-        portfolioBeta:
-            'Portfolio Beta measures your portfolio\'s sensitivity to overall market movements (S&P 500). A beta of 1.0 means it moves with the market. Above 1.0 means more volatile than the market; below 1.0 means less volatile. It is calculated as the weighted average beta of each holding.',
-        dailyReturn:
-            'Daily Return is the percentage change in your portfolio\'s value from the previous trading day\'s close to the current price. It is calculated as (today\'s value − yesterday\'s value) ÷ yesterday\'s value × 100.',
+    const allSymbols = [...new Set(allHoldings.map(h => h.stockSymbol))];
+
+    const latestRSI = indicatorData.length > 0 ? indicatorData[indicatorData.length - 1]?.rsi : null;
+    const getRSILabel = (rsi) => {
+        if (rsi == null) return { text: '—', color: 'text-gray-400' };
+        if (rsi >= 70) return { text: 'Overbought', color: 'text-red-400' };
+        if (rsi <= 30) return { text: 'Oversold', color: 'text-green-400' };
+        return { text: 'Neutral', color: 'text-gray-300' };
     };
+    const rsiLabel = getRSILabel(latestRSI);
 
     return (
         <div>
@@ -516,7 +742,15 @@ export default function DashboardPage() {
                             <span className="ml-3 text-gray-400 text-sm">Analyzing your portfolio...</span>
                         </div>
                     ) : (
-                        <div className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{digestContent}</div>
+                        <div
+                            className="text-gray-300 text-sm leading-relaxed"
+                            dangerouslySetInnerHTML={{
+                                __html: (digestContent || '')
+                                    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>')
+                                    .replace(/(Remember,.*?(?:investment|financial) advice\.?)/gi, '<strong class="text-yellow-400 font-semibold mt-2 block">⚠️ $1</strong>')
+                                    .replace(/\n/g, '<br />')
+                            }}
+                        />
                     )}
                 </div>
             )}
@@ -566,9 +800,9 @@ export default function DashboardPage() {
                 </div>
             )}
 
-            {/* Summary Cards */}
+            {/* Summary Cards — Row 1 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <MetricTooltip tooltip={tooltips.currentValue}>
+                <MetricTooltip tooltip="The total market value of all your holdings right now. Calculated as the sum of (current price × quantity) for every stock across all portfolios.">
                     <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
                         <div className="flex items-center justify-between">
                             <div>
@@ -584,8 +818,7 @@ export default function DashboardPage() {
                         </div>
                     </div>
                 </MetricTooltip>
-
-                <MetricTooltip tooltip={tooltips.totalInvested}>
+                <MetricTooltip tooltip="The total amount you originally spent to buy all holdings. Calculated as the sum of (average buy price × quantity) for every position across all portfolios.">
                     <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
                         <div className="flex items-center justify-between">
                             <div>
@@ -597,8 +830,7 @@ export default function DashboardPage() {
                         </div>
                     </div>
                 </MetricTooltip>
-
-                <MetricTooltip tooltip={tooltips.totalHoldings}>
+                <MetricTooltip tooltip="The total number of individual stock positions across all your portfolios, and how many distinct ticker symbols you hold.">
                     <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
                         <div className="flex items-center justify-between">
                             <div>
@@ -610,8 +842,7 @@ export default function DashboardPage() {
                         </div>
                     </div>
                 </MetricTooltip>
-
-                <MetricTooltip tooltip={tooltips.dailyVaR}>
+                <MetricTooltip tooltip="Value at Risk at 95% confidence level. Estimates the maximum dollar loss your combined portfolio could experience in a single trading day under normal market conditions. Calculated using historical price volatility and a normal distribution model.">
                     <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
                         <div className="flex items-center justify-between">
                             <div>
@@ -625,9 +856,9 @@ export default function DashboardPage() {
                 </MetricTooltip>
             </div>
 
-            {/* Risk Metrics */}
+            {/* Risk Metrics — Row 2 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <MetricTooltip tooltip={tooltips.volatility}>
+                <MetricTooltip tooltip="Annualized portfolio volatility measures how much your portfolio's returns fluctuate over time. Calculated as the standard deviation of daily returns, annualized by multiplying by √252 (trading days). Higher values mean more price swings and greater risk.">
                     <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
                         <div className="flex items-center justify-between">
                             <div>
@@ -639,8 +870,7 @@ export default function DashboardPage() {
                         </div>
                     </div>
                 </MetricTooltip>
-
-                <MetricTooltip tooltip={tooltips.sharpeRatio}>
+                <MetricTooltip tooltip="The Sharpe Ratio measures risk-adjusted return — how much excess return you earn per unit of risk. Calculated as (portfolio return − risk-free rate) ÷ portfolio volatility. Above 1.0 is good, above 2.0 is very good, and negative means the portfolio underperformed the risk-free rate.">
                     <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
                         <div className="flex items-center justify-between">
                             <div>
@@ -652,8 +882,7 @@ export default function DashboardPage() {
                         </div>
                     </div>
                 </MetricTooltip>
-
-                <MetricTooltip tooltip={tooltips.portfolioBeta}>
+                <MetricTooltip tooltip="Portfolio Beta measures how sensitive your portfolio is to overall market movements (S&P 500). A beta of 1.0 means it moves with the market. Above 1.0 means more volatile than the market, below 1.0 means less volatile. Calculated as the covariance of portfolio returns with market returns divided by market variance.">
                     <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
                         <div className="flex items-center justify-between">
                             <div>
@@ -665,8 +894,7 @@ export default function DashboardPage() {
                         </div>
                     </div>
                 </MetricTooltip>
-
-                <MetricTooltip tooltip={tooltips.dailyReturn}>
+                <MetricTooltip tooltip="The latest single-day percentage change in your portfolio's total value. Calculated as (today's portfolio value − previous day's value) ÷ previous day's value. Shows how your portfolio performed in the most recent trading session.">
                     <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
                         <div className="flex items-center justify-between">
                             <div>
@@ -682,76 +910,371 @@ export default function DashboardPage() {
                 </MetricTooltip>
             </div>
 
-            {/* Stock Price History Chart */}
-            {(priceHistory.length > 1 || chartLoading) && (
+            {/* ═══════════════════ TABBED: STOCK PRICE MOVEMENT + TECHNICAL INDICATORS ═══════════════════ */}
+            {(priceHistory.length > 1 || chartLoading) && allSymbols.length > 0 && (
                 <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-8">
+                    {/* Tab Header Row */}
                     <div className="flex items-center justify-between mb-4">
-                        <div>
-                            <h2 className="text-lg font-semibold text-white">Stock Price Movement</h2>
-                            <p className="text-gray-500 text-sm">
-                                {marketStatus && !marketStatus.isOpen
-                                    ? 'Showing last recorded prices before market close'
-                                    : 'Market prices for all holdings'}
-                            </p>
-                        </div>
-                        <div className="flex gap-1">
-                            {['24H', '1W', '1M', '6M', '1Y', '2Y', '5Y'].map((range) => (
+                        <div className="flex items-center gap-2">
+                            {/* Pill-style Tab Toggle */}
+                            <div className="flex bg-gray-900 rounded-lg p-1">
                                 <button
-                                    key={range}
-                                    onClick={() => handleRangeChange(range)}
-                                    disabled={chartLoading}
-                                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${
-                                        chartRange === range
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-gray-200'
-                                    } ${chartLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    onClick={() => setActiveChartTab('price')}
+                                    className={`px-4 py-2 text-sm font-semibold rounded-md transition-all ${
+                                        activeChartTab === 'price'
+                                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                                            : 'text-gray-400 hover:text-gray-200'
+                                    }`}
                                 >
-                                    {range}
+                                    Stock Price Movement
                                 </button>
-                            ))}
+                                <button
+                                    onClick={() => setActiveChartTab('technical')}
+                                    className={`px-4 py-2 text-sm font-semibold rounded-md transition-all ${
+                                        activeChartTab === 'technical'
+                                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                                            : 'text-gray-400 hover:text-gray-200'
+                                    }`}
+                                >
+                                    Technical Indicators
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                    {chartLoading ? (
-                        <div className="flex items-center justify-center h-[300px]">
-                            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-                        </div>
-                    ) : (
-                        <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={priceHistory}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                                <XAxis
-                                    dataKey="index"
-                                    tick={{ fill: '#9ca3af', fontSize: 10 }}
-                                    ticks={priceHistory._uniqueTicks || []}
-                                    tickFormatter={(idx) => priceHistory[idx]?.dateKey || ''}
-                                />
-                                <YAxis tick={{ fill: '#9ca3af', fontSize: 11 }} tickFormatter={(v) => `$${v}`} domain={['auto', 'auto']} />
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px' }}
-                                    itemStyle={{ fontSize: '12px' }}
-                                    labelFormatter={(label, payload) => payload?.[0]?.payload?.fullTime || label}
-                                    formatter={(value, name) => [fmt(value), name]}
-                                />
-                                <Legend wrapperStyle={{ fontSize: '12px', color: '#9ca3af' }} />
-                                {[...new Set(allHoldings.map(h => h.stockSymbol))].map((symbol) => (
-                                    <Line
-                                        key={symbol}
-                                        type="monotone"
-                                        dataKey={symbol}
-                                        stroke={getStockColor(symbol)}
-                                        strokeWidth={2}
-                                        dot={false}
-                                        connectNulls
-                                    />
+
+                        {/* Right-side controls change based on active tab */}
+                        {activeChartTab === 'price' ? (
+                            <div className="flex gap-1">
+                                {['24H', '1W', '1M', '6M', '1Y', '2Y', '5Y'].map((range) => (
+                                    <button
+                                        key={range}
+                                        onClick={() => handleRangeChange(range)}
+                                        disabled={chartLoading}
+                                        className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${
+                                            chartRange === range
+                                                ? 'bg-blue-600 text-white'
+                                                : 'bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-gray-200'
+                                        } ${chartLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    >
+                                        {range}
+                                    </button>
                                 ))}
-                            </LineChart>
-                        </ResponsiveContainer>
-                    )}
-                    <p className="text-gray-600 text-xs mt-3 text-center italic">
-                        Chart shows market prices from Yahoo Finance. Select a time range to view historical performance.
+                            </div>
+                        ) : (
+                            <StockSelector
+                                symbols={allSymbols}
+                                activeStock={activeIndicatorStock}
+                                onSelect={setActiveIndicatorStock}
+                            />
+                        )}
+                    </div>
+
+                    {/* Subtitle */}
+                    <p className="text-gray-500 text-sm mb-4">
+                        {activeChartTab === 'price'
+                            ? (marketStatus && !marketStatus.isOpen
+                                ? 'Showing last recorded prices before market close'
+                                : 'Market prices for all holdings')
+                            : 'Moving averages, RSI & momentum — select a stock to analyze'}
                     </p>
+
+                    {/* ─── PRICE TAB CONTENT ─── */}
+                    {activeChartTab === 'price' && (
+                        <>
+                            {chartLoading ? (
+                                <div className="flex items-center justify-center h-[300px]">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                                </div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <LineChart data={priceHistory}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                                        <XAxis
+                                            dataKey="index"
+                                            tick={{ fill: '#9ca3af', fontSize: 10 }}
+                                            ticks={priceHistory._uniqueTicks || []}
+                                            tickFormatter={(idx) => priceHistory[idx]?.dateKey || ''}
+                                        />
+                                        <YAxis tick={{ fill: '#9ca3af', fontSize: 11 }} tickFormatter={(v) => `$${v}`} domain={['auto', 'auto']} />
+                                        <Tooltip
+                                            contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px' }}
+                                            itemStyle={{ fontSize: '12px' }}
+                                            labelFormatter={(label, payload) => payload?.[0]?.payload?.fullTime || label}
+                                            formatter={(value, name) => [fmt(value), name]}
+                                        />
+                                        <Legend wrapperStyle={{ fontSize: '12px', color: '#9ca3af' }} />
+                                        {allSymbols.map((symbol) => (
+                                            <Line
+                                                key={symbol}
+                                                type="monotone"
+                                                dataKey={symbol}
+                                                stroke={STOCK_COLORS[symbol] || '#6b7280'}
+                                                strokeWidth={2}
+                                                dot={false}
+                                                connectNulls
+                                            />
+                                        ))}
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            )}
+                            <p className="text-gray-600 text-xs mt-3 text-center italic">
+                                Chart shows market prices from Yahoo Finance. Select a time range to view historical performance.
+                            </p>
+                        </>
+                    )}
+
+                    {/* ─── TECHNICAL INDICATORS TAB CONTENT ─── */}
+                    {activeChartTab === 'technical' && (
+                        <>
+                            {indicatorData.length > 0 && activeIndicatorStock ? (
+                                <div className="space-y-6">
+                                    {/* ── Price + SMA Chart ── */}
+                                    <div>
+                                        <div className="flex items-center gap-4 mb-3">
+                                            <h3 className="text-sm font-medium text-gray-300">
+                                                {activeIndicatorStock} — Price with Moving Averages
+                                            </h3>
+                                            <div className="flex items-center gap-3 text-xs text-gray-500">
+                                                <span className="flex items-center gap-1.5">
+                                                    <span className="w-5 h-0.5 rounded" style={{ backgroundColor: STOCK_COLORS[activeIndicatorStock] || '#6b7280' }}></span>
+                                                    Price
+                                                </span>
+                                                <span className="flex items-center gap-1.5">
+                                                    <span className="w-5 h-0.5 bg-yellow-400 rounded"></span>
+                                                    SMA 10
+                                                </span>
+                                                <span className="flex items-center gap-1.5">
+                                                    <span className="w-5 h-0.5 bg-orange-400 rounded"></span>
+                                                    SMA 20
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <ResponsiveContainer width="100%" height={250}>
+                                            <LineChart data={indicatorData}>
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                                                <XAxis
+                                                    dataKey="index"
+                                                    tick={{ fill: '#9ca3af', fontSize: 10 }}
+                                                    ticks={priceHistory._uniqueTicks || []}
+                                                    tickFormatter={(idx) => indicatorData[idx]?.dateKey || ''}
+                                                />
+                                                <YAxis
+                                                    tick={{ fill: '#9ca3af', fontSize: 11 }}
+                                                    tickFormatter={(v) => `$${v}`}
+                                                    domain={['auto', 'auto']}
+                                                />
+                                                <Tooltip content={<IndicatorTooltip type="price" />} />
+                                                <Line
+                                                    type="monotone"
+                                                    dataKey="price"
+                                                    name={`${activeIndicatorStock} Price`}
+                                                    stroke={STOCK_COLORS[activeIndicatorStock] || '#6b7280'}
+                                                    strokeWidth={2}
+                                                    dot={false}
+                                                    connectNulls
+                                                />
+                                                <Line
+                                                    type="monotone"
+                                                    dataKey="sma10"
+                                                    name="SMA 10"
+                                                    stroke="#facc15"
+                                                    strokeWidth={1.5}
+                                                    strokeDasharray="4 2"
+                                                    dot={false}
+                                                    connectNulls
+                                                />
+                                                <Line
+                                                    type="monotone"
+                                                    dataKey="sma20"
+                                                    name="SMA 20"
+                                                    stroke="#fb923c"
+                                                    strokeWidth={1.5}
+                                                    strokeDasharray="6 3"
+                                                    dot={false}
+                                                    connectNulls
+                                                />
+                                            </LineChart>
+                                        </ResponsiveContainer>
+                                        <p className="text-gray-600 text-xs mt-2 text-center italic">
+                                            When the price crosses above the SMA, it may signal upward momentum. When it crosses below, it may suggest a downtrend.
+                                        </p>
+                                    </div>
+
+                                    {/* ── RSI Chart ── */}
+                                    <div>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center gap-3">
+                                                <h3 className="text-sm font-medium text-gray-300">
+                                                    RSI (14-period)
+                                                </h3>
+                                                {latestRSI != null && (
+                                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                                        latestRSI >= 70 ? 'bg-red-500/20 text-red-400' :
+                                                        latestRSI <= 30 ? 'bg-green-500/20 text-green-400' :
+                                                        'bg-gray-700 text-gray-300'
+                                                    }`}>
+                                                        {latestRSI.toFixed(1)} — {rsiLabel.text}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-3 text-xs text-gray-500">
+                                                <span className="flex items-center gap-1.5">
+                                                    <span className="w-3 h-0.5 bg-red-400/50 rounded"></span>
+                                                    Overbought (70)
+                                                </span>
+                                                <span className="flex items-center gap-1.5">
+                                                    <span className="w-3 h-0.5 bg-green-400/50 rounded"></span>
+                                                    Oversold (30)
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <ResponsiveContainer width="100%" height={180}>
+                                            <AreaChart data={indicatorData}>
+                                                <defs>
+                                                    <linearGradient id="rsiGradient" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                                                        <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.02} />
+                                                    </linearGradient>
+                                                </defs>
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                                                <XAxis
+                                                    dataKey="index"
+                                                    tick={{ fill: '#9ca3af', fontSize: 10 }}
+                                                    ticks={priceHistory._uniqueTicks || []}
+                                                    tickFormatter={(idx) => indicatorData[idx]?.dateKey || ''}
+                                                />
+                                                <YAxis
+                                                    tick={{ fill: '#9ca3af', fontSize: 11 }}
+                                                    domain={[0, 100]}
+                                                    ticks={[0, 30, 50, 70, 100]}
+                                                />
+                                                <Tooltip content={<IndicatorTooltip type="rsi" />} />
+                                                <ReferenceLine y={70} stroke="#ef4444" strokeDasharray="4 3" strokeOpacity={0.5} />
+                                                <ReferenceLine y={30} stroke="#22c55e" strokeDasharray="4 3" strokeOpacity={0.5} />
+                                                <ReferenceLine y={50} stroke="#6b7280" strokeDasharray="2 4" strokeOpacity={0.3} />
+                                                <Area
+                                                    type="monotone"
+                                                    dataKey="rsi"
+                                                    name="RSI"
+                                                    stroke="#8b5cf6"
+                                                    strokeWidth={2}
+                                                    fill="url(#rsiGradient)"
+                                                    dot={false}
+                                                    connectNulls
+                                                />
+                                            </AreaChart>
+                                        </ResponsiveContainer>
+                                        <p className="text-gray-600 text-xs mt-2 text-center italic">
+                                            RSI above 70 suggests the stock may be overbought; below 30 suggests it may be oversold. This is not financial advice.
+                                        </p>
+                                    </div>
+
+                                    {/* ── Momentum (Daily % Change) Chart ── */}
+                                    <div>
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <h3 className="text-sm font-medium text-gray-300">
+                                                Daily Momentum (% Change)
+                                            </h3>
+                                            <div className="flex items-center gap-3 text-xs text-gray-500">
+                                                <span className="flex items-center gap-1.5">
+                                                    <span className="w-2.5 h-2.5 bg-emerald-500 rounded-sm"></span>
+                                                    Bullish
+                                                </span>
+                                                <span className="flex items-center gap-1.5">
+                                                    <span className="w-2.5 h-2.5 bg-red-500 rounded-sm"></span>
+                                                    Bearish
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <ResponsiveContainer width="100%" height={160}>
+                                            <ComposedChart data={indicatorData}>
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                                                <XAxis
+                                                    dataKey="index"
+                                                    tick={{ fill: '#9ca3af', fontSize: 10 }}
+                                                    ticks={priceHistory._uniqueTicks || []}
+                                                    tickFormatter={(idx) => indicatorData[idx]?.dateKey || ''}
+                                                />
+                                                <YAxis
+                                                    tick={{ fill: '#9ca3af', fontSize: 11 }}
+                                                    tickFormatter={(v) => `${v}%`}
+                                                    domain={['auto', 'auto']}
+                                                />
+                                                <Tooltip content={<IndicatorTooltip type="momentum" />} />
+                                                <ReferenceLine y={0} stroke="#6b7280" strokeOpacity={0.5} />
+                                                <Bar dataKey="momentumPos" name="Gain" fill="#10b981" radius={[2, 2, 0, 0]} />
+                                                <Bar dataKey="momentumNeg" name="Loss" fill="#ef4444" radius={[0, 0, 2, 2]} />
+                                            </ComposedChart>
+                                        </ResponsiveContainer>
+                                        <p className="text-gray-600 text-xs mt-2 text-center italic">
+                                            Shows the percentage price change between data points. Large swings may indicate increased volatility.
+                                        </p>
+                                    </div>
+
+                                    {/* ── AI Explain Button & Panel ── */}
+                                    <div className="pt-2">
+                                        <button
+                                            onClick={generateAiExplanation}
+                                            disabled={aiExplainLoading}
+                                            className="flex items-center gap-2 px-4 py-2.5 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-300 rounded-lg transition text-sm font-medium disabled:opacity-50 w-full justify-center"
+                                        >
+                                            <BoltIcon className="h-4 w-4" />
+                                            {aiExplainLoading
+                                                ? 'Analyzing...'
+                                                : showAiExplain && aiExplainStock === activeIndicatorStock && aiExplainContent
+                                                    ? `Refresh AI Analysis for ${activeIndicatorStock}`
+                                                    : `Explain ${activeIndicatorStock} Indicators with AI`}
+                                        </button>
+
+                                        {showAiExplain && aiExplainStock === activeIndicatorStock && (
+                                            <div className="mt-4 bg-purple-500/5 border border-purple-500/20 rounded-xl p-5">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="bg-purple-600/20 p-1.5 rounded-md">
+                                                            <BoltIcon className="h-4 w-4 text-purple-400" />
+                                                        </div>
+                                                        <span className="text-purple-300 text-sm font-semibold">
+                                                            AI Analysis — {aiExplainStock}
+                                                        </span>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => setShowAiExplain(false)}
+                                                        className="text-gray-500 hover:text-gray-300 transition"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                                {aiExplainLoading ? (
+                                                    <div className="flex items-center justify-center py-6">
+                                                        <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-purple-500"></div>
+                                                        <span className="ml-3 text-gray-400 text-sm">Reading the charts for you...</span>
+                                                    </div>
+                                                ) : (
+                                                    <div
+                                                        className="text-gray-300 text-sm leading-relaxed ai-explain-content"
+                                                        dangerouslySetInnerHTML={{
+                                                            __html: aiExplainContent
+                                                                .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>')
+                                                                .replace(/(Remember,.*?(?:investment|financial) advice\.?)/gi, '<strong class="text-yellow-400 font-semibold mt-2 block">⚠️ $1</strong>')
+                                                                .replace(/\n/g, '<br />')
+                                                        }}
+                                                    />
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex items-center justify-center h-[200px] text-gray-500 text-sm">
+                                    Select a stock above to view technical indicators
+                                </div>
+                            )}
+                        </>
+                    )}
                 </div>
             )}
+            {/* ═══════════════════ END TABBED SECTION ═══════════════════ */}
 
             {/* Charts Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -762,7 +1285,7 @@ export default function DashboardPage() {
                             <ResponsiveContainer width="60%" height={250}>
                                 <PieChart>
                                     <Pie data={mergedAllocation} cx="50%" cy="50%" innerRadius={60} outerRadius={100} dataKey="value" stroke="none">
-                                        {mergedAllocation.map((_, i) => (<Cell key={i} fill={getPaletteColor(i)} />))}
+                                        {mergedAllocation.map((_, i) => (<Cell key={i} fill={COLORS[i % COLORS.length]} />))}
                                     </Pie>
                                     <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px' }} itemStyle={{ color: '#e5e7eb' }} formatter={(v) => fmtShort(v)} />
                                 </PieChart>
@@ -771,7 +1294,7 @@ export default function DashboardPage() {
                                 {mergedAllocation.map((item, i) => (
                                     <div key={item.name} className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
-                                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: getPaletteColor(i) }}></div>
+                                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
                                             <span className="text-sm text-gray-300">{item.name}</span>
                                         </div>
                                         <span className="text-sm text-gray-400">{((item.value / totalInvested) * 100).toFixed(1)}%</span>
@@ -828,7 +1351,7 @@ export default function DashboardPage() {
                                 <tr key={h.id} className="border-b border-gray-700/50 hover:bg-gray-700/30 transition">
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-2">
-                                            <div className="w-2 h-8 rounded-full" style={{ backgroundColor: getStockColor(h.stockSymbol) }}></div>
+                                            <div className="w-2 h-8 rounded-full" style={{ backgroundColor: STOCK_COLORS[h.stockSymbol] || '#6b7280' }}></div>
                                             <div>
                                                 <span className="text-white font-semibold">{h.stockSymbol}</span>
                                                 {prices[h.stockSymbol]?.changePercent != null && (
