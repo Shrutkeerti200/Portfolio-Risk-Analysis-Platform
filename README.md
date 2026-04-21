@@ -11,7 +11,7 @@ This platform simulates a simplified version of the risk dashboards used by port
 ### Authentication
 | Sign In | Sign Up |
 |---------|---------|
-| ![Sign In](screenshots/sign_in.png) | ![Sign Up](screenshots/sign_up.png) |
+| ![Sign In](screenshots/sign in.png) | ![Sign Up](screenshots/sign up.png) |
 
 ### OTP Verification
 ![OTP Verification](screenshots/otp_verification.png)
