@@ -20,7 +20,7 @@ This platform simulates a simplified version of the risk dashboards used by port
 Live data with real-time price updates every 30 seconds.
 
 | Dashboard Overview | Dashboard Charts | Dashboard Holdings | Dashboard Market Closed |
-|-------------------|-----------------|-------------------|
+|-------------------|-----------------|-------------------|-----------------
 | ![Dashboard Market Open](screenshots/dashboard1.png) | ![Dashboard Charts](screenshots/dashboard2.png) | ![Dashboard Holdings](screenshots/dashboard3.png) | ![Dashboard Market Closed](screenshots/marketClosed.png) |
 
 ### AI Daily Digest
