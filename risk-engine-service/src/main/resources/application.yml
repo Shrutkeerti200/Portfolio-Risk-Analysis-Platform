@@ -1,5 +1,5 @@
 server:
-  port: 8082
+  port: ${PORT:8082}
 
 spring:
   application:
@@ -7,7 +7,7 @@ spring:
 
   # PostgreSQL Configuration
   datasource:
-    url: jdbc:postgresql://localhost:5433/portfolio_db
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5433/portfolio_db}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
@@ -16,34 +16,49 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     open-in-view: false
     properties:
       hibernate:
         "[format_sql]": true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
 
-# Redis Configuration
-data:
-  redis:
-    host: localhost
-    port: 6379
+  # Redis Configuration
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
 
-# kafka Configuration
-kafka:
-  bootstrap-servers: localhost:9092
-  consumer:
-    group-id: risk-engine-group
-    auto-offset-reset: earliest
-    key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-    value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-  producer:
-    key-serializer: org.apache.kafka.common.serialization.StringSerializer
-    value-serializer: org.apache.kafka.common.serialization.StringSerializer
+  # Kafka — only used locally, disabled in production
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: risk-engine-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
 
 # Finnhub API Configuration
 finnhub:
   api-key: ${FINNHUB_API_KEY}
   base-url: https://finnhub.io/api/v1
+
+# Price fetch interval: 120s for production, 30s for local
+price:
+  fetch:
+    interval: ${PRICE_FETCH_INTERVAL:30000}
+    delay-between-calls: ${PRICE_FETCH_DELAY:1200}
+
+# Notification service URL for direct REST calls (replaces Kafka in production)
+notification:
+  service:
+    url: ${NOTIFICATION_SERVICE_URL:http://localhost:8083}
+
+# Whether to use Kafka or direct REST for notifications
+messaging:
+  mode: ${MESSAGING_MODE:kafka}
 
 # Actuator
 management:

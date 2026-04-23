@@ -12,6 +12,7 @@ import { BriefcaseIcon, CurrencyDollarIcon, ChartBarIcon, ScaleIcon, BoltIcon, A
 import AiAssistant from '../components/dashboard/AiAssistant';
 import MetricTooltip from '../components/dashboard/MetricTooltip';
 import * as XLSX from 'xlsx';
+import config from '../config';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
 const STOCK_COLORS = {
@@ -220,7 +221,7 @@ export default function DashboardPage() {
 
     const fetchMarketStatus = async () => {
         try {
-            const response = await fetch('http://localhost:8082/api/risk/market-status');
+            const response = await fetch(`${config.RISK_API_URL}/risk/market-status`);
             if (response.ok) {
                 const data = await response.json();
                 setMarketStatus(data);
@@ -290,7 +291,7 @@ export default function DashboardPage() {
             for (const symbol of symbols) {
                 try {
                     const response = await fetch(
-                        `http://localhost:8082/api/risk/prices/${symbol}/candles?from=${from}&to=${now}`
+                        `${config.RISK_API_URL}/risk/prices/${symbol}/candles?from=${from}&to=${now}`
                     );
                     if (response.ok) {
                         const data = await response.json();
@@ -307,7 +308,7 @@ export default function DashboardPage() {
                 for (const symbol of symbols) {
                     try {
                         const response = await fetch(
-                            `http://localhost:8082/api/risk/prices/${symbol}/history?limit=2000`
+                            `${config.RISK_API_URL}/risk/prices/${symbol}/history?limit=2000`
                         );
                         if (response.ok) {
                             const data = await response.json();
@@ -527,7 +528,7 @@ export default function DashboardPage() {
         try {
             const allTransactions = [];
             for (const p of portfolios) {
-                const response = await fetch(`http://localhost:8081/api/portfolios/${p.id}/transactions`, {
+                const response = await fetch(`${config.PORTFOLIO_API_URL}/portfolios/${p.id}/transactions`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
                 });
                 if (response.ok) {
@@ -578,7 +579,7 @@ export default function DashboardPage() {
         setShowDigest(true);
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch('http://localhost:8081/api/ai/digest', {
+            const response = await fetch(`${config.PORTFOLIO_API_URL}/ai/digest`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -640,7 +641,7 @@ export default function DashboardPage() {
 
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch('http://localhost:8081/api/ai/explain-indicators', {
+            const response = await fetch(`${config.PORTFOLIO_API_URL}/ai/explain-indicators`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

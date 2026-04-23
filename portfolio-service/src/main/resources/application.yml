@@ -1,13 +1,13 @@
 server:
-    port: 8081
+    port: ${PORT:8081}
 
 spring:
     application:
         name: portfolio-service
 
-    # PostgreSQL Configuration
+    # PostgreSQL — works with both local and Neon
     datasource:
-        url: jdbc:postgresql://localhost:5433/portfolio_db
+        url: ${DATABASE_URL:jdbc:postgresql://localhost:5433/portfolio_db}
         username: ${DB_USERNAME}
         password: ${DB_PASSWORD}
         driver-class-name: org.postgresql.Driver
@@ -16,17 +16,17 @@ spring:
     jpa:
         hibernate:
             ddl-auto: update
-        show-sql: true
+        show-sql: false
         open-in-view: false
         properties:
             hibernate:
                 "[format_sql]": true
+                dialect: org.hibernate.dialect.PostgreSQLDialect
 
-    # Redis Configuration
+    # Redis — works with both local and Upstash
     data:
         redis:
-            host: localhost
-            port: 6379
+            url: ${REDIS_URL:redis://localhost:6379}
 
     mail:
         host: smtp.gmail.com
@@ -42,25 +42,25 @@ spring:
 
 app:
     otp:
-        expiration: 300000 # 5 minutes in milliseconds
-            
+        expiration: 300000
+
 # JWT Configuration
 jwt:
     secret: ${JWT_SECRET}
-    expiration: 86400000 # 1 day in milliseconds
+    expiration: 86400000
 
-#actuator - Health endpoints
+# Actuator - Health endpoints
 management:
     endpoints:
         web:
             exposure:
-                include: health,info 
+                include: health,info
 
 anthropic:
-    api-key: ${ANTHROPIC_API_KEY}
+    api-key: ${ANTHROPIC_API_KEY:none}
 
 gemini:
-    api-key: ${GEMINI_API_KEY}
+    api-key: ${GEMINI_API_KEY:none}
 
 groq:
-    api-key: ${GROQ_API_KEY}
+    api-key: ${GROQ_API_KEY:none}

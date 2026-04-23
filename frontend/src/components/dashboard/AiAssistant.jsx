@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import config from '../../config';
 
 export default function AiAssistant({ portfolioContext }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -42,7 +43,7 @@ export default function AiAssistant({ portfolioContext }) {
 
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch('http://localhost:8081/api/ai/chat', {
+            const response = await fetch(`${config.PORTFOLIO_API_URL}/ai/chat`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

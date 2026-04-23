@@ -1,9 +1,9 @@
-const RISK_API_URL = 'http://localhost:8082/api/risk';
+import config from '../config';
 
 const riskService = {
     async getPortfolioRisk(portfolioId) {
         try {
-            const response = await fetch(`${RISK_API_URL}/portfolio/${portfolioId}`);
+            const response = await fetch(`${config.RISK_API_URL}/risk/portfolio/${portfolioId}`);
             if (!response.ok) {
                 console.warn(`Risk API returned ${response.status} for portfolio ${portfolioId}`);
                 return null;
@@ -17,7 +17,7 @@ const riskService = {
 
     async getPortfolioRiskHistory(portfolioId) {
         try {
-            const response = await fetch(`${RISK_API_URL}/portfolio/${portfolioId}/history`);
+            const response = await fetch(`${config.RISK_API_URL}/risk/portfolio/${portfolioId}/history`);
             if (!response.ok) return [];
             return await response.json();
         } catch {
@@ -37,7 +37,7 @@ const riskService = {
     async getStockPrices(symbols) {
         try {
             const query = symbols.map(s => `symbols=${s}`).join('&');
-            const response = await fetch(`${RISK_API_URL}/prices?${query}`);
+            const response = await fetch(`${config.RISK_API_URL}/risk/prices?${query}`);
             if (!response.ok) return {};
             return await response.json();
         } catch {
@@ -47,7 +47,7 @@ const riskService = {
 
     async getStockPrice(symbol) {
         try {
-            const response = await fetch(`${RISK_API_URL}/prices/${symbol}`);
+            const response = await fetch(`${config.RISK_API_URL}/risk/prices/${symbol}`);
             if (!response.ok) return null;
             return await response.json();
         } catch {

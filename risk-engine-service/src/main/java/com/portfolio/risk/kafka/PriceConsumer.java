@@ -1,5 +1,6 @@
 package com.portfolio.risk.kafka;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
@@ -13,10 +14,10 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 @RequiredArgsConstructor
 @Slf4j
+@ConditionalOnProperty(name = "messaging.mode", havingValue = "kafka", matchIfMissing = true)
 public class PriceConsumer {
 
     private final ObjectMapper objectMapper;
-    
     private final RiskCalculationService riskCalculationService;
 
     @KafkaListener(topics = "stock-price-updates", groupId = "risk-engine-group")
@@ -31,5 +32,4 @@ public class PriceConsumer {
             log.error("Error processing price update: {}", e.getMessage());
         }
     }
-
 }

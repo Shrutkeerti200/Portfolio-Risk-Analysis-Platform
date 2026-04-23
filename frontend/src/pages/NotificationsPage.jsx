@@ -4,6 +4,7 @@ import notificationService from '../services/notificationService';
 import portfolioService from '../services/portfolioService';
 import riskService from '../services/riskService';
 import { BellIcon, TrashIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, BoltIcon } from '@heroicons/react/24/outline';
+import config from '../config';
 
 export default function NotificationsPage() {
     const { user } = useAuth();
@@ -100,7 +101,7 @@ export default function NotificationsPage() {
 
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch('http://localhost:8081/api/ai/summarize-alert', {
+            const response = await fetch(`${config.PORTFOLIO_API_URL}/ai/summarize-alert`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

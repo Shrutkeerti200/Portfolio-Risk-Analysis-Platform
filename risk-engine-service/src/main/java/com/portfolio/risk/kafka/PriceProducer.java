@@ -1,32 +1,72 @@
 package com.portfolio.risk.kafka;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.portfolio.risk.dto.PriceUpdateMessage;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class PriceProducer {
 
     private static final String TOPIC = "stock-price-updates";
 
     private final KafkaTemplate<String, String> kafkaTemplate;
-
     private final ObjectMapper objectMapper;
+    private final String messagingMode;
+    private final WebClient notificationWebClient;
+
+    public PriceProducer(
+            KafkaTemplate<String, String> kafkaTemplate,
+            ObjectMapper objectMapper,
+            @Value("${messaging.mode:kafka}") String messagingMode,
+            @Value("${notification.service.url:http://localhost:8083}") String notificationServiceUrl) {
+        this.kafkaTemplate = kafkaTemplate;
+        this.objectMapper = objectMapper;
+        this.messagingMode = messagingMode;
+        this.notificationWebClient = WebClient.builder()
+                .baseUrl(notificationServiceUrl)
+                .build();
+    }
 
     public void sendPriceUpdate(PriceUpdateMessage message) {
         try {
             String json = objectMapper.writeValueAsString(message);
-            kafkaTemplate.send(TOPIC, message.getSymbol(), json);
-            log.info("Published price update: {} = ${}", message.getSymbol(), message.getCurrentPrice());
+
+            if ("rest".equalsIgnoreCase(messagingMode)) {
+                sendViaRest(json, message);
+            } else {
+                kafkaTemplate.send(TOPIC, message.getSymbol(), json);
+                log.info("Published price update via Kafka: {} = ${}",
+                        message.getSymbol(), message.getCurrentPrice());
+            }
         } catch (Exception e) {
-            log.error("Error serializing price update: {}", e.getMessage());
+            log.error("Error sending price update: {}", e.getMessage());
+        }
+    }
+
+    private void sendViaRest(String json, PriceUpdateMessage message) {
+        try {
+            notificationWebClient.post()
+                    .uri("/api/internal/price-update")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(json)
+                    .retrieve()
+                    .bodyToMono(Void.class)
+                    .subscribe(
+                        success -> log.info("Sent price update via REST: {} = ${}",
+                                message.getSymbol(), message.getCurrentPrice()),
+                        error -> log.warn("Failed to send price update via REST: {}",
+                                error.getMessage())
+                    );
+        } catch (Exception e) {
+            log.warn("Error sending price update via REST: {}", e.getMessage());
         }
     }
 }

@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -30,16 +31,21 @@ public class PriceFetcherService {
     private final RedisTemplate<String, String> redisTemplate;
     private final EntityManager entityManager;
 
-    /**
-     * Fetches prices for all stocks held in portfolios every 30 seconds.
-     * Finnhub free tier allows 60 calls/minute, so we space them out.
-    */
+    @Value("${price.fetch.delay-between-calls:1200}")
+    private long delayBetweenCalls;
 
-    @Scheduled(fixedRate = 30000) // Every 30 seconds
+    /**
+     * Fetches prices for all stocks held in portfolios.
+     * Interval is configurable via price.fetch.interval:
+     * - Local: 30s (default)
+     * - Production: 120s (set PRICE_FETCH_INTERVAL=120000 on Render)
+     * Finnhub free tier allows 60 calls/minute.
+     */
+    @Scheduled(fixedRateString = "${price.fetch.interval:30000}")
     public void fetchPrices() {
         List<String> symbols = getActiveSymbols();
 
-        if(symbols.isEmpty()) {
+        if (symbols.isEmpty()) {
             log.debug("No active stock symbols to fetch prices for");
             return;
         }
@@ -50,8 +56,8 @@ public class PriceFetcherService {
             try {
                 FinnhubClient.StockQuote quote = finnhubClient.getQuote(symbol);
 
-                if(quote != null) {
-                    StockPrice stockPrice = StockPrice.builder()    
+                if (quote != null) {
+                    StockPrice stockPrice = StockPrice.builder()
                             .symbol(symbol)
                             .price(quote.getCurrentPrice())
                             .previousClose(quote.getPreviousClose())
@@ -59,13 +65,13 @@ public class PriceFetcherService {
                             .volume(quote.getVolume())
                             .fetchedAt(LocalDateTime.now())
                             .build();
-                
+
                     stockPriceRepository.save(stockPrice);
-                    
+
+                    // Cache in Redis — 180s TTL to survive between fetch cycles
                     String redisKey = "price:" + symbol;
                     String redisValue = quote.getCurrentPrice().toPlainString();
-
-                    redisTemplate.opsForValue().set(redisKey, redisValue, Duration.ofSeconds(60));
+                    redisTemplate.opsForValue().set(redisKey, redisValue, Duration.ofSeconds(180));
 
                     PriceUpdateMessage message = PriceUpdateMessage.builder()
                             .symbol(symbol)
@@ -79,7 +85,7 @@ public class PriceFetcherService {
                     priceProducer.sendPriceUpdate(message);
                 }
 
-                Thread.sleep(1200);
+                Thread.sleep(delayBetweenCalls);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 break;
@@ -89,12 +95,11 @@ public class PriceFetcherService {
         }
     }
 
-     /**
+    /**
      * Gets all unique stock symbols from holdings table.
      * This queries the portfolio-service's holdings table directly
      * since both services share the same database.
      */
-
     @SuppressWarnings("unchecked")
     private List<String> getActiveSymbols() {
         try {
@@ -105,5 +110,5 @@ public class PriceFetcherService {
             log.error("Error fetching active symbols: {}", e.getMessage());
             return List.of();
         }
-    } 
+    }
 }

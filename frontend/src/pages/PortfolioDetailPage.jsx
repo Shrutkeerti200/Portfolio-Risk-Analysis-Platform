@@ -4,6 +4,7 @@ import portfolioService from '../services/portfolioService';
 import riskService from '../services/riskService';
 import { PlusIcon, TrashIcon, ArrowLeftIcon, ArrowUpIcon, ArrowDownIcon, ClockIcon, ChevronDownIcon, ChevronUpIcon, ArrowDownTrayIcon, BoltIcon } from '@heroicons/react/24/outline';
 import * as XLSX from 'xlsx';
+import config from '../config';
 
 export default function PortfolioDetailPage() {
     const { id } = useParams();
@@ -93,7 +94,7 @@ export default function PortfolioDetailPage() {
             const payload = { type: txModal.type, quantity: parseFloat(txForm.quantity), pricePerUnit: parseFloat(txForm.pricePerUnit) };
             if (txForm.executedAt) { payload.executedAt = new Date(txForm.executedAt).toISOString(); }
 
-            const response = await fetch(`http://localhost:8081/api/portfolios/holdings/${txModal.holdingId}/transactions`, {
+            const response = await fetch(`${config.PORTFOLIO_API_URL}/portfolios/holdings/${txModal.holdingId}/transactions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
                 body: JSON.stringify(payload),
@@ -116,7 +117,7 @@ export default function PortfolioDetailPage() {
         setExpandedHolding(holdingId);
         if (!holdingTransactions[holdingId]) {
             try {
-                const response = await fetch(`http://localhost:8081/api/portfolios/holdings/${holdingId}/transactions`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } });
+                const response = await fetch(`${config.PORTFOLIO_API_URL}/portfolios/holdings/${holdingId}/transactions`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } });
                 if (response.ok) { const data = await response.json(); setHoldingTransactions(prev => ({ ...prev, [holdingId]: data })); }
             } catch { }
         }
@@ -143,7 +144,7 @@ export default function PortfolioDetailPage() {
         XLSX.utils.book_append_sheet(wb, ws1, 'Holdings');
 
         try {
-            const response = await fetch(`http://localhost:8081/api/portfolios/${id}/transactions`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } });
+            const response = await fetch(`${config.PORTFOLIO_API_URL}/portfolios/${id}/transactions`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } });
             if (response.ok) {
                 const txns = await response.json();
                 if (txns.length > 0) {
@@ -171,7 +172,7 @@ export default function PortfolioDetailPage() {
             }).join('\n');
 
             const token = localStorage.getItem('token');
-            const response = await fetch('http://localhost:8081/api/ai/research', {
+            const response = await fetch(`${config.PORTFOLIO_API_URL}/ai/research`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
                 body: JSON.stringify({ symbol, portfolioContext }),
