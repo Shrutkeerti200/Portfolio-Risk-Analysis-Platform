@@ -38,7 +38,7 @@ export default function RegisterPage() {
             newErrors.firstName = 'First name must be at least 2 characters';
         }
 
-        if (formData.lastName.trim().length >= 1) {
+        if (formData.lastName.trim().length < 1) {
             newErrors.lastName = 'Last name must be at least 1 character';
         }
 
