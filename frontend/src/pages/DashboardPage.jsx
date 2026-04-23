@@ -10,7 +10,7 @@ import {
 } from 'recharts';
 import { BriefcaseIcon, CurrencyDollarIcon, ChartBarIcon, ScaleIcon, BoltIcon, ArrowTrendingUpIcon, ChartPieIcon, ArrowPathIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import AiAssistant from '../components/dashboard/AiAssistant';
-import MetricToolTip from '../components/dashboard/MetricTooltip';
+import MetricToolTip from '../components/dashboard/MetricToolTip';
 import * as XLSX from 'xlsx';
 import config from '../config';
 
@@ -803,7 +803,7 @@ export default function DashboardPage() {
 
             {/* Summary Cards — Row 1 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <MetricTooltip tooltip="The total market value of all your holdings right now. Calculated as the sum of (current price × quantity) for every stock across all portfolios.">
+                <MetricToolTip tooltip="The total market value of all your holdings right now. Calculated as the sum of (current price × quantity) for every stock across all portfolios.">
                     <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
                         <div className="flex items-center justify-between">
                             <div>
@@ -818,8 +818,8 @@ export default function DashboardPage() {
                             <div className="bg-blue-600/20 p-3 rounded-lg"><CurrencyDollarIcon className="h-6 w-6 text-blue-400" /></div>
                         </div>
                     </div>
-                </MetricTooltip>
-                <MetricTooltip tooltip="The total amount you originally spent to buy all holdings. Calculated as the sum of (average buy price × quantity) for every position across all portfolios.">
+                </MetricToolTip>
+                <MetricToolTip tooltip="The total amount you originally spent to buy all holdings. Calculated as the sum of (average buy price × quantity) for every position across all portfolios.">
                     <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
                         <div className="flex items-center justify-between">
                             <div>
@@ -830,8 +830,8 @@ export default function DashboardPage() {
                             <div className="bg-green-600/20 p-3 rounded-lg"><BriefcaseIcon className="h-6 w-6 text-green-400" /></div>
                         </div>
                     </div>
-                </MetricTooltip>
-                <MetricTooltip tooltip="The total number of individual stock positions across all your portfolios, and how many distinct ticker symbols you hold.">
+                </MetricToolTip>
+                <MetricToolTip tooltip="The total number of individual stock positions across all your portfolios, and how many distinct ticker symbols you hold.">
                     <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
                         <div className="flex items-center justify-between">
                             <div>
@@ -842,8 +842,8 @@ export default function DashboardPage() {
                             <div className="bg-yellow-600/20 p-3 rounded-lg"><ChartBarIcon className="h-6 w-6 text-yellow-400" /></div>
                         </div>
                     </div>
-                </MetricTooltip>
-                <MetricTooltip tooltip="Value at Risk at 95% confidence level. Estimates the maximum dollar loss your combined portfolio could experience in a single trading day under normal market conditions. Calculated using historical price volatility and a normal distribution model.">
+                </MetricToolTip>
+                <MetricToolTip tooltip="Value at Risk at 95% confidence level. Estimates the maximum dollar loss your combined portfolio could experience in a single trading day under normal market conditions. Calculated using historical price volatility and a normal distribution model.">
                     <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
                         <div className="flex items-center justify-between">
                             <div>
@@ -854,12 +854,12 @@ export default function DashboardPage() {
                             <div className="bg-red-600/20 p-3 rounded-lg"><ScaleIcon className="h-6 w-6 text-red-400" /></div>
                         </div>
                     </div>
-                </MetricTooltip>
+                </MetricToolTip>
             </div>
 
             {/* Risk Metrics — Row 2 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <MetricTooltip tooltip="Annualized portfolio volatility measures how much your portfolio's returns fluctuate over time. Calculated as the standard deviation of daily returns, annualized by multiplying by √252 (trading days). Higher values mean more price swings and greater risk.">
+                <MetricToolTip tooltip="Annualized portfolio volatility measures how much your portfolio's returns fluctuate over time. Calculated as the standard deviation of daily returns, annualized by multiplying by √252 (trading days). Higher values mean more price swings and greater risk.">
                     <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
                         <div className="flex items-center justify-between">
                             <div>
@@ -870,8 +870,8 @@ export default function DashboardPage() {
                             <div className="bg-orange-600/20 p-2.5 rounded-lg"><BoltIcon className="h-5 w-5 text-orange-400" /></div>
                         </div>
                     </div>
-                </MetricTooltip>
-                <MetricTooltip tooltip="The Sharpe Ratio measures risk-adjusted return — how much excess return you earn per unit of risk. Calculated as (portfolio return − risk-free rate) ÷ portfolio volatility. Above 1.0 is good, above 2.0 is very good, and negative means the portfolio underperformed the risk-free rate.">
+                </MetricToolTip>
+                <MetricToolTip tooltip="The Sharpe Ratio measures risk-adjusted return — how much excess return you earn per unit of risk. Calculated as (portfolio return − risk-free rate) ÷ portfolio volatility. Above 1.0 is good, above 2.0 is very good, and negative means the portfolio underperformed the risk-free rate.">
                     <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
                         <div className="flex items-center justify-between">
                             <div>
@@ -882,8 +882,8 @@ export default function DashboardPage() {
                             <div className="bg-purple-600/20 p-2.5 rounded-lg"><ArrowTrendingUpIcon className="h-5 w-5 text-purple-400" /></div>
                         </div>
                     </div>
-                </MetricTooltip>
-                <MetricTooltip tooltip="Portfolio Beta measures how sensitive your portfolio is to overall market movements (S&P 500). A beta of 1.0 means it moves with the market. Above 1.0 means more volatile than the market, below 1.0 means less volatile. Calculated as the covariance of portfolio returns with market returns divided by market variance.">
+                </MetricToolTip>
+                <MetricToolTip tooltip="Portfolio Beta measures how sensitive your portfolio is to overall market movements (S&P 500). A beta of 1.0 means it moves with the market. Above 1.0 means more volatile than the market, below 1.0 means less volatile. Calculated as the covariance of portfolio returns with market returns divided by market variance.">
                     <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
                         <div className="flex items-center justify-between">
                             <div>
@@ -894,8 +894,8 @@ export default function DashboardPage() {
                             <div className="bg-cyan-600/20 p-2.5 rounded-lg"><ChartPieIcon className="h-5 w-5 text-cyan-400" /></div>
                         </div>
                     </div>
-                </MetricTooltip>
-                <MetricTooltip tooltip="The latest single-day percentage change in your portfolio's total value. Calculated as (today's portfolio value − previous day's value) ÷ previous day's value. Shows how your portfolio performed in the most recent trading session.">
+                </MetricToolTip>
+                <MetricToolTip tooltip="The latest single-day percentage change in your portfolio's total value. Calculated as (today's portfolio value − previous day's value) ÷ previous day's value. Shows how your portfolio performed in the most recent trading session.">
                     <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
                         <div className="flex items-center justify-between">
                             <div>
@@ -908,7 +908,7 @@ export default function DashboardPage() {
                             <div className="bg-emerald-600/20 p-2.5 rounded-lg"><ArrowPathIcon className="h-5 w-5 text-emerald-400" /></div>
                         </div>
                     </div>
-                </MetricTooltip>
+                </MetricToolTip>
             </div>
 
             {/* ═══════════════════ TABBED: STOCK PRICE MOVEMENT + TECHNICAL INDICATORS ═══════════════════ */}

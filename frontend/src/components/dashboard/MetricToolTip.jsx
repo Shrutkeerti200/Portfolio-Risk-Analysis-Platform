@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function MetricTooltip({ children, tooltip }) {
+export default function MetricToolTip({ children, tooltip }) {
     const [show, setShow] = useState(false);
 
     return (
