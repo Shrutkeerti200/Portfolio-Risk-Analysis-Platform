@@ -10,7 +10,7 @@ import {
 } from 'recharts';
 import { BriefcaseIcon, CurrencyDollarIcon, ChartBarIcon, ScaleIcon, BoltIcon, ArrowTrendingUpIcon, ChartPieIcon, ArrowPathIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import AiAssistant from '../components/dashboard/AiAssistant';
-import MetricTooltip from '../components/dashboard/MetricTooltip';
+import MetricToolTip from '../components/dashboard/MetricTooltip';
 import * as XLSX from 'xlsx';
 import config from '../config';
 
