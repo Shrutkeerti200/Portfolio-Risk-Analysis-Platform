@@ -1,5 +1,6 @@
 package com.portfolio.risk.kafka;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -23,6 +24,7 @@ public class PriceProducer {
     private final WebClient notificationWebClient;
 
     public PriceProducer(
+            @Autowired(required = false)
             KafkaTemplate<String, String> kafkaTemplate,
             ObjectMapper objectMapper,
             @Value("${messaging.mode:kafka}") String messagingMode,
@@ -42,9 +44,13 @@ public class PriceProducer {
             if ("rest".equalsIgnoreCase(messagingMode)) {
                 sendViaRest(json, message);
             } else {
-                kafkaTemplate.send(TOPIC, message.getSymbol(), json);
-                log.info("Published price update via Kafka: {} = ${}",
-                        message.getSymbol(), message.getCurrentPrice());
+                if (kafkaTemplate != null) {
+                    kafkaTemplate.send(TOPIC, message.getSymbol(), json);
+                    log.info("Published price update via Kafka: {} = ${}",
+                            message.getSymbol(), message.getCurrentPrice());
+                } else {
+                    log.warn("Kafka mode selected but KafkaTemplate is null");
+                }
             }
         } catch (Exception e) {
             log.error("Error sending price update: {}", e.getMessage());
